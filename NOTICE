@@ -1,32 +1,24 @@
-Word Clock (horloge textuelle façon Qlocktwo)
+Word Clock (Qlocktwo-style textual clock)
 Copyright (c) 2026 Vincent Borreux
 
-Ce logiciel est distribué sous licence MIT (voir LICENSE).
+This software is released under the MIT License (see LICENSE).
 
-Condition d'attribution
+Attribution requirement
 -----------------------
-Toute utilisation, copie, modification ou redistribution de ce logiciel, en
-tout ou en partie, doit conserver la mention de l'auteur original et créditer :
+Any use, copy, modification or redistribution of this software, in whole or in
+part, must keep the credit to the original author and credit:
 
     Vincent Borreux
 
-dans les crédits, la documentation ou l'interface du projet concerné.
-Toute version modifiée doit également indiquer qu'elle est basée sur ce travail
-original.
+in the credits, documentation or interface of the resulting project. Modified
+versions must also state that they are based on this original work.
 
-Exemple de mention :
+Example credit line:
 
-    Basé sur « Word Clock » de Vincent Borreux
+    Based on "Word Clock" by Vincent Borreux
     https://github.com/VBorreux/word-clock-widget
 
 ---
-
-Attribution requirement (English)
----------------------------------
-Any use, copy, modification or redistribution of this software, in whole or in
-part, must keep the credit to the original author, Vincent Borreux, in the
-credits or documentation of the resulting project. Modified versions must also
-state that they are based on this original work.
 
 "Qlocktwo" is a trademark of its respective owner. This project is an
 independent, non-affiliated tribute and uses none of the original clock's

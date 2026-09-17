@@ -1,22 +1,18 @@
-# Word Clock — horloge textuelle façon Qlocktwo
+# Word Clock — a Qlocktwo-style textual clock
 
-Widget de bureau Linux qui affiche l'heure en toutes lettres, dans une grille de
-caractères : les mots de l'heure courante s'illuminent, les autres restent
-éteints. Inspiré de l'horloge **Qlocktwo** de Biegert & Funk (projet non
-affilié, voir la section *Marque*).
+A Linux desktop widget that spells the current time in words on a letter grid:
+the words for the current time light up, the others stay dim. Inspired by the
+**Qlocktwo** clock by Biegert & Funk (this project is not affiliated — see the
+*Trademark* section).
 
-**Langues :** français, anglais, allemand, espagnol, italien, néerlandais,
-portugais, russe, chinois, arabe (optionnel).
-
-> **English:** a Linux desktop word-clock widget (Qlocktwo-style) written in
-> Python + PyQt6, with 10 languages, a settings dialog, system-tray support and
-> packaging. See the [English summary](#english-summary).
+**Languages:** French, English, German, Spanish, Italian, Dutch, Portuguese,
+Russian, Chinese, Arabic (optional).
 
 ---
 
-## Aperçu
+## Preview
 
-Exemple à 10 h 15 en français :
+Example at 10:15 in French:
 
 ```
 I L E S T Q U A T R E
@@ -32,36 +28,36 @@ V I N G T C I N Q P Q
 D I X R S T U V W X Y
 ```
 
-Les lettres `IL EST DIX HEURES ET QUART` sont éclairées ; elles se lisent dans
-l'ordre, de haut en bas. Quatre points dans les coins indiquent les minutes
-exactes (1 à 4 au-delà du multiple de 5).
+The letters `IL EST DIX HEURES ET QUART` are lit; they read in order, top to
+bottom. Four dots in the corners show the exact minutes (1 to 4 past the
+five-minute step).
 
-## Fonctionnalités
+## Features
 
-- Fenêtre sans bordure, translucide, aux coins arrondis, déplaçable à la souris.
-- Illumination avec effet de lueur (glow) réglable.
-- 10 langues, grilles disposées pour que chaque phrase se lise naturellement.
-- Interface et menus traduits dans la langue de l'application.
-- Sélecteur de langue avec drapeaux (dessinés, sans images externes).
-- Menu clic droit : réglages, langue, opacité, taille, couleurs, toujours
-  au-dessus, quitter.
-- Fenêtre de réglages complète : couleurs, fond, opacité, taille, police,
-  intensité du glow, arrondi des coins, vitesse de rafraîchissement, heure
-  numérique (12/24 h) et date, points des minutes.
-- Aperçu en direct et thèmes prédéfinis (Sombre, Clair, Néon, Ambre, Minimal).
-- Icône de zone de notification (menu et afficher/masquer).
-- Configuration par machine dans `~/.config/qlocktwo/`.
-- Service `systemd --user` et entrée d'autostart XDG.
-- Empaquetage : bundle PyInstaller, `.deb`, AppImage.
-- Aucune dépendance en dehors de PyQt6, entièrement installée dans un `venv`.
+- Frameless, translucent, rounded-corner window, draggable with the mouse.
+- Illumination with a configurable glow effect.
+- 10 languages, with grids laid out so every phrase reads naturally.
+- Interface and menus translated into the application language.
+- Language selector with flags (drawn, no external images).
+- Right-click menu: settings, language, opacity, size, colours, always on top,
+  quit.
+- Full settings dialog: colours, background, opacity, size, font, glow
+  strength, corner radius, refresh rate, digital time (12/24 h) and date,
+  minute dots.
+- Live preview and preset themes (Dark, Light, Neon, Amber, Minimal).
+- System-tray icon (menu and show/hide).
+- Per-machine configuration in `~/.config/qlocktwo/`.
+- `systemd --user` service and XDG autostart entry.
+- Packaging: PyInstaller bundle, `.deb`, AppImage.
+- No dependency other than PyQt6, fully installed inside a `venv`.
 
-## Prérequis
+## Requirements
 
-- Linux avec un serveur graphique (Wayland ou X11).
-- Python 3.10+ avec le support `venv` (`python3-venv`).
-- PyQt6 (installé automatiquement dans `.venv`).
+- Linux with a graphical session (Wayland or X11).
+- Python 3.10+ with `venv` support (`python3-venv`).
+- PyQt6 (installed automatically into `.venv`).
 
-## Démarrage rapide
+## Quick start
 
 ```bash
 git clone https://github.com/VBorreux/word-clock-widget.git word-clock
@@ -69,148 +65,125 @@ cd word-clock
 ./run.sh
 ```
 
-`run.sh` détecte un interpréteur Python capable de créer un environnement
-virtuel, crée `.venv` si besoin, installe les dépendances puis lance le widget.
-Rien n'est installé sur le système hôte.
+`run.sh` finds a Python interpreter able to create a virtual environment,
+creates `.venv` if needed, installs the dependencies and launches the widget.
+Nothing is installed on the host system.
 
-Variantes :
+Variants:
 
 ```bash
-./run.sh --settings   # ouvre directement la fenêtre de réglages
-./run.sh test         # lance la suite de tests dans le venv
-./run.sh --no-install # lance sans réinstaller les dépendances
+./run.sh --settings   # open the settings dialog directly
+./run.sh test         # run the test suite inside the venv
+./run.sh --no-install # launch without reinstalling dependencies
 ```
 
-Pour choisir l'interpréteur : `PYTHON=/usr/bin/python3.12 ./run.sh`.
+To pick the interpreter: `PYTHON=/usr/bin/python3.12 ./run.sh`.
 
-## Utilisation
+## Usage
 
-- **Déplacer** : clic gauche maintenu (drag).
-- **Menu** : clic droit → Réglages, Langue, Opacité, Taille, Couleurs,
-  Toujours au-dessus, Quitter.
-- **Raccourcis** : `Ctrl+,` (réglages), `Ctrl+Q` / `Échap` (quitter).
-- La position, la langue et tous les réglages sont sauvegardés dans
-  `~/.config/qlocktwo/config.json` (surcharge possible via `QLOCKTWO_CONFIG`).
+- **Move**: hold the left mouse button (drag).
+- **Menu**: right-click → Settings, Language, Opacity, Size, Colours, Always on
+  top, Quit.
+- **Shortcuts**: `Ctrl+,` (settings), `Ctrl+Q` / `Escape` (quit).
+- The position, language and every setting are saved in
+  `~/.config/qlocktwo/config.json` (override with `QLOCKTWO_CONFIG`).
 
 ## Configuration
 
-| Clé | Défaut | Description |
+| Key | Default | Description |
 | --- | --- | --- |
-| `language` | `en` | Code de langue (`fr`, `en`, `de`, `es`, `it`, `nl`, `pt`, `ru`, `zh`, `ar`) |
-| `active_color` / `inactive_color` | `#FFFFFF` / `#222222` | Couleur des lettres |
-| `background_color` | `#101014` | Couleur de fond |
-| `opacity` | `0.85` | Opacité du fond (0.05–1.0) |
-| `scale` | `1.0` | Taille de la grille |
-| `glow` / `glow_strength` | `true` / `1.0` | Effet de lueur et intensité |
-| `font_family` / `font_scale` | `""` / `1.0` | Police (`""` = auto) et taille du texte |
-| `corner_radius` | `20` | Arrondi des coins |
-| `show_dots` | `true` | Points des minutes |
-| `show_digital` / `clock_24h` / `show_date` | `false` / `true` / `false` | Heure numérique et date |
-| `refresh_ms` | `1000` | Intervalle de rafraîchissement |
-| `always_on_top` | `false` | Toujours au-dessus |
-| `enable_optional_locales` | `false` | Afficher l'arabe |
-| `show_tray` | `true` | Icône de zone de notification |
+| `language` | `en` | Language code (`fr`, `en`, `de`, `es`, `it`, `nl`, `pt`, `ru`, `zh`, `ar`) |
+| `active_color` / `inactive_color` | `#FFFFFF` / `#222222` | Letter colours |
+| `background_color` | `#101014` | Background colour |
+| `opacity` | `0.85` | Background opacity (0.05–1.0) |
+| `scale` | `1.0` | Grid size |
+| `glow` / `glow_strength` | `true` / `1.0` | Glow effect and strength |
+| `font_family` / `font_scale` | `""` / `1.0` | Font (`""` = auto) and text size |
+| `corner_radius` | `20` | Corner radius |
+| `show_dots` | `true` | Minute dots |
+| `show_digital` / `clock_24h` / `show_date` | `false` / `true` / `false` | Digital time and date |
+| `refresh_ms` | `1000` | Refresh interval |
+| `always_on_top` | `false` | Always on top |
+| `enable_optional_locales` | `false` | Show Arabic |
+| `show_tray` | `true` | System-tray icon |
 
-## Langues
+## Languages
 
-Les grilles sont définies dans `locales/`. Chaque module expose une grille, un
-mapping mot → segments et une fonction `build(heure, minute)`. Un test garantit
-que les mots s'illuminent toujours dans l'ordre de lecture.
+Grids are defined in `locales/`. Each module exposes a grid, a word-to-segments
+mapping and a `build(hour, minute)` function. A test guarantees the words always
+light up in reading order.
 
-Pour ajouter une langue : créez `locales/xx.py` sur le modèle d'une langue
-existante, puis enregistrez-la dans `locales/__init__.py`. Ajoutez la traduction
-de l'interface dans `i18n.py` et un drapeau dans `flags.py`.
+To add a language: create `locales/xx.py` following an existing language, then
+register it in `locales/__init__.py`. Add the UI translation in `i18n.py` and a
+flag in `flags.py`.
 
-## Service systemd et autostart
+## systemd service and autostart
 
 ```bash
-./service.sh install     # service systemd --user (démarrage à la session)
+./service.sh install     # systemd --user service (starts with the session)
 ./service.sh uninstall
 ./service.sh start|stop|restart|status
-./service.sh autostart   # alternative : entrée XDG autostart
+./service.sh autostart   # alternative: XDG autostart entry
 ./service.sh no-autostart
 ```
 
-Contrôle du service : `systemctl --user status qlocktwo`.
+Service control: `systemctl --user status qlocktwo`.
 
-## Empaquetage
+## Packaging
 
 ```bash
-./packaging/build.sh pyinstaller   # bundle autonome (build/dist/qlocktwo)
-./packaging/build.sh deb           # paquet .deb
+./packaging/build.sh pyinstaller   # standalone bundle (build/dist/qlocktwo)
+./packaging/build.sh deb           # .deb package
 ./packaging/build.sh appimage      # AppImage
 ./packaging/build.sh all
 ./packaging/build.sh clean
 ```
 
-Les artefacts sont générés dans `build/` (ignoré par git).
+Artifacts are produced in `build/` (ignored by git).
 
-## Structure du projet
+## Project structure
 
 ```
-locales/          grilles et logique horaire (10 langues)
-flags.py          drapeaux dessinés avec Qt
-i18n.py           traductions de l'interface
-presets.py        thèmes de couleurs
-settings.py       configuration (XDG) + valeurs par défaut
-settings_dialog.py fenêtre de réglages
-widget.py         fenêtre et rendu de la grille
-tray.py           icône de zone de notification
-main.py           point d'entrée
-run.sh            environnement virtuel + lancement
-service.sh        service systemd --user / autostart
-packaging/        PyInstaller, .deb, AppImage
-tests/            tests unitaires (unittest)
+locales/           grids and time logic (10 languages)
+flags.py           flags drawn with Qt
+i18n.py            interface translations
+presets.py         colour themes
+settings.py        configuration (XDG) + defaults
+settings_dialog.py settings window
+widget.py          window and grid rendering
+tray.py            system-tray icon
+main.py            entry point
+run.sh             virtual environment + launch
+service.sh         systemd --user service / autostart
+packaging/         PyInstaller, .deb, AppImage
+tests/             unit tests (unittest)
 ```
 
 ## Tests
 
 ```bash
 ./run.sh test
-# ou, dans un venv avec PyQt6 :
+# or, inside a venv with PyQt6:
 python -m unittest discover -s tests -v
 ```
 
-Les tests couvrent les grilles et l'ordre de lecture, la configuration,
-l'i18n, les drapeaux et le rendu hors écran du widget.
+The tests cover grids and reading order, configuration, i18n, flags and the
+offscreen rendering of the widget.
 
-## Crédits et licence
+## Credits and license
 
-- **Auteur : Vincent Borreux** — © 2026.
-- Distribué sous licence **MIT** (voir [LICENSE](LICENSE)).
-- Toute utilisation, copie, modification ou redistribution, totale ou partielle,
-  doit **conserver la mention de l'auteur original** et créditer
-  **Vincent Borreux** dans les crédits ou la documentation du projet.
-  Les versions modifiées doivent aussi indiquer qu'elles sont basées sur ce
-  travail original (voir [NOTICE](NOTICE)).
+- **Author: Vincent Borreux** — © 2026.
+- Released under the **MIT** license (see [LICENSE](LICENSE)).
+- Any use, copy, modification or redistribution, in whole or in part, must
+  **keep the credit to the original author** and credit **Vincent Borreux** in
+  the project's credits or documentation. Modified versions must also state that
+  they are based on this original work (see [NOTICE](NOTICE)).
 
-Merci de mentionner « Word Clock de Vincent Borreux » lorsque vous réutilisez ou
-modifiez ce code.
+Please credit "Word Clock by Vincent Borreux" when you reuse or modify this
+code.
 
-## Marque
+## Trademark
 
-« Qlocktwo » / « QlockTwo » est une marque de son propriétaire (Biegert & Funk).
-Ce projet est un hommage indépendant, **non affilié** et non approuvé par le
-propriétaire de la marque. Il n'utilise aucune ressource de l'horloge originale.
-
----
-
-## English summary
-
-A frameless Linux desktop word-clock widget (Qlocktwo-style) built with Python
-and PyQt6. It lights up the words of the current time in a letter grid, supports
-10 languages, a full settings dialog (colours, background, opacity, size, font,
-glow, corner radius, refresh rate, digital time/date), live preview, colour
-presets, a system-tray icon, per-machine configuration, a `systemd --user`
-service and packaging (PyInstaller, `.deb`, AppImage).
-
-```bash
-git clone https://github.com/VBorreux/word-clock-widget.git word-clock && cd word-clock
-./run.sh          # creates .venv, installs deps, launches the widget
-./run.sh test     # runs the test suite
-```
-
-**Author: Vincent Borreux** — MIT licensed. Any use, copy, modification or
-redistribution must keep the original author's credit (see [NOTICE](NOTICE)).
-"Qlocktwo" is a trademark of its respective owner; this project is an
-independent, non-affiliated tribute.
+"Qlocktwo" / "QlockTwo" is a trademark of its owner (Biegert & Funk). This
+project is an independent, non-affiliated tribute and is not endorsed by the
+trademark owner. It uses none of the original clock's assets.
