@@ -1,4 +1,11 @@
-"""Persistent widget configuration stored as JSON next to the sources."""
+"""Persistent widget configuration.
+
+The configuration lives in the user's XDG config directory
+(``~/.config/qlocktwo/config.json``) so that several machines sharing the same
+source checkout (e.g. over NFS) keep their own settings.  ``QLOCKTWO_CONFIG``
+overrides the location and a legacy ``config.json`` next to the sources is
+migrated automatically.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +15,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
+APP_DIR_NAME = "qlocktwo"
 CONFIG_NAME = "config.json"
 
 DEFAULTS: dict[str, Any] = {
@@ -26,12 +34,30 @@ DEFAULTS: dict[str, Any] = {
 }
 
 
-def default_path() -> Path:
+def legacy_path() -> Path:
+    """Old per-checkout config location (pre-XDG)."""
     return Path(__file__).resolve().with_name(CONFIG_NAME)
 
 
+def default_path() -> Path:
+    override = os.environ.get("QLOCKTWO_CONFIG")
+    if override:
+        return Path(override).expanduser()
+    base = os.environ.get("XDG_CONFIG_HOME")
+    root = Path(base).expanduser() if base else Path.home() / ".config"
+    return root / APP_DIR_NAME / CONFIG_NAME
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 class Settings:
-    """Small dict-like wrapper that persists changes to ``config.json``."""
+    """Small dict-like wrapper that persists changes to a JSON file."""
 
     def __init__(self, path: Path | str, data: Mapping[str, Any] | None = None) -> None:
         self.path = Path(path)
@@ -41,16 +67,18 @@ class Settings:
 
     @classmethod
     def load(cls, path: Path | str | None = None) -> "Settings":
-        target = Path(path) if path is not None else default_path()
-        data: dict[str, Any] = {}
-        if target.exists():
-            try:
-                loaded = json.loads(target.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    data = loaded
-            except (OSError, ValueError):
-                data = {}
-        return cls(target, data)
+        if path is not None:
+            target = Path(path)
+            return cls(target, _read_json(target))
+
+        target = default_path()
+        if not target.exists():
+            legacy = legacy_path()
+            if legacy.exists():
+                settings = cls(target, _read_json(legacy))
+                settings.save()
+                return settings
+        return cls(target, _read_json(target))
 
     def get(self, key: str, default: Any = None) -> Any:
         if key in self._data:

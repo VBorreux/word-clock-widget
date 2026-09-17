@@ -1,11 +1,32 @@
 """Tests for configuration loading and persistence."""
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
-from settings import DEFAULTS, Settings
+import settings as settings_module
+from settings import DEFAULTS, Settings, default_path
+
+
+class _Env:
+    def __init__(self, **values: str) -> None:
+        self.values = values
+        self.saved: dict[str, str | None] = {}
+
+    def __enter__(self):
+        for key, value in self.values.items():
+            self.saved[key] = os.environ.get(key)
+            os.environ[key] = value
+        return self
+
+    def __exit__(self, *exc):
+        for key, value in self.saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 class SettingsTests(unittest.TestCase):
@@ -43,6 +64,42 @@ class SettingsTests(unittest.TestCase):
             payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(payload["language"], "fr")
             self.assertEqual(payload["opacity"], 0.5)
+
+
+class ConfigLocationTests(unittest.TestCase):
+    def test_default_path_uses_xdg_config_home(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with _Env(XDG_CONFIG_HOME=directory, QLOCKTWO_CONFIG=""):
+                os.environ.pop("QLOCKTWO_CONFIG", None)
+                self.assertEqual(
+                    default_path(), Path(directory) / "qlocktwo" / "config.json"
+                )
+
+    def test_qlocktwo_config_overrides_location(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "custom.json"
+            with _Env(QLOCKTWO_CONFIG=str(target)):
+                self.assertEqual(default_path(), target)
+
+    def test_load_migrates_legacy_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            legacy = Path(directory) / "legacy.json"
+            legacy.write_text(json.dumps({"language": "de"}), encoding="utf-8")
+            original = settings_module.legacy_path
+            settings_module.legacy_path = lambda: legacy
+            try:
+                with _Env(XDG_CONFIG_HOME=directory):
+                    os.environ.pop("QLOCKTWO_CONFIG", None)
+                    settings = Settings.load()
+                    self.assertEqual(settings.get("language"), "de")
+                    migrated = Path(directory) / "qlocktwo" / "config.json"
+                    self.assertTrue(migrated.exists())
+                    self.assertEqual(
+                        json.loads(migrated.read_text(encoding="utf-8"))["language"],
+                        "de",
+                    )
+            finally:
+                settings_module.legacy_path = original
 
 
 if __name__ == "__main__":
