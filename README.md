@@ -64,7 +64,7 @@ exactes (1 à 4 au-delà du multiple de 5).
 ## Démarrage rapide
 
 ```bash
-git clone <URL_DU_DEPOT> word-clock
+git clone https://github.com/VBorreux/word-clock-widget.git word-clock
 cd word-clock
 ./run.sh
 ```
@@ -205,7 +205,7 @@ presets, a system-tray icon, per-machine configuration, a `systemd --user`
 service and packaging (PyInstaller, `.deb`, AppImage).
 
 ```bash
-git clone <REPO_URL> word-clock && cd word-clock
+git clone https://github.com/VBorreux/word-clock-widget.git word-clock && cd word-clock
 ./run.sh          # creates .venv, installs deps, launches the widget
 ./run.sh test     # runs the test suite
 ```
