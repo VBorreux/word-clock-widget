@@ -39,7 +39,7 @@ Restart=on-failure
 RestartSec=3
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 EOF
 }
 
@@ -66,6 +66,10 @@ require_systemd() {
 case "${1:-}" in
     install)
         require_systemd
+        if [ -f "$DESKTOP_PATH" ]; then
+            rm -f "$DESKTOP_PATH"
+            echo "[service.sh] Removed autostart entry (use one mechanism at a time)."
+        fi
         write_unit
         systemctl --user daemon-reload
         systemctl --user enable --now "$SERVICE_NAME.service"
@@ -84,6 +88,10 @@ case "${1:-}" in
         systemctl --user "$1" "$SERVICE_NAME.service"
         ;;
     autostart)
+        if [ -f "$UNIT_PATH" ] && systemctl --user show-environment >/dev/null 2>&1; then
+            systemctl --user disable --now "$SERVICE_NAME.service" || true
+            echo "[service.sh] Disabled the systemd service (use one mechanism at a time)."
+        fi
         write_desktop
         echo "[service.sh] Autostart entry written to $DESKTOP_PATH"
         ;;
