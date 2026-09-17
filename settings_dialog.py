@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QFontComboBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -22,6 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from locales import DEFAULT_LANGUAGE, get_available_locales
+from presets import PRESETS
 from settings import DEFAULTS, Settings
 
 _REFRESH_MIN = 100
@@ -30,6 +32,8 @@ _REFRESH_MAX = 5000
 
 class ColorButton(QPushButton):
     """A button showing the current colour and opening a colour picker."""
+
+    changed = pyqtSignal()
 
     def __init__(self, color: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -49,17 +53,26 @@ class ColorButton(QPushButton):
             f"color: {text_color}; border: 1px solid #555; padding: 4px; }}"
         )
 
+    def set_color(self, color: str) -> None:
+        self._color = QColor(color)
+        if not self._color.isValid():
+            self._color = QColor("#000000")
+        self._refresh()
+
     def _choose(self) -> None:
         chosen = QColorDialog.getColor(self._color, self, "Choisir une couleur")
         if chosen.isValid():
             self._color = chosen
             self._refresh()
+            self.changed.emit()
 
     def color(self) -> str:
         return self._color.name()
 
 
 class SettingsDialog(QDialog):
+    preview = pyqtSignal(dict)
+
     def __init__(self, settings: Settings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.settings = settings
@@ -185,11 +198,57 @@ class SettingsDialog(QDialog):
             self._restore_defaults
         )
 
+        preset_row = QHBoxLayout()
+        preset_row.addWidget(QLabel("Thème"))
+        for name in PRESETS:
+            button = QPushButton(name)
+            button.clicked.connect(lambda checked=False, n=name: self._apply_preset(n))
+            preset_row.addWidget(button)
+        preset_widget = QWidget()
+        preset_widget.setLayout(preset_row)
+
         layout = QVBoxLayout(self)
         layout.addLayout(form)
+        layout.addWidget(preset_widget)
         layout.addWidget(buttons)
 
+        self._connect_preview()
         self._rebuild_languages()
+
+    def _connect_preview(self) -> None:
+        for signal in (
+            self.language_combo.currentIndexChanged,
+            self.optional_check.toggled,
+            self.opacity_slider.valueChanged,
+            self.scale_spin.valueChanged,
+            self.refresh_spin.valueChanged,
+            self.glow_check.toggled,
+            self.glow_strength_spin.valueChanged,
+            self.font_auto_check.toggled,
+            self.font_combo.currentFontChanged,
+            self.font_scale_spin.valueChanged,
+            self.corner_spin.valueChanged,
+            self.digital_check.toggled,
+            self.clock24_check.toggled,
+            self.date_check.toggled,
+            self.dots_check.toggled,
+            self.on_top_check.toggled,
+        ):
+            signal.connect(self._emit_preview)
+        for button in (self.active_button, self.inactive_button, self.background_button):
+            button.changed.connect(self._emit_preview)
+
+    def _emit_preview(self, *args) -> None:
+        self.preview.emit(self.values())
+
+    def _apply_preset(self, name: str) -> None:
+        preset = PRESETS[name]
+        self.active_button.set_color(preset["active_color"])
+        self.inactive_button.set_color(preset["inactive_color"])
+        self.background_button.set_color(preset["background_color"])
+        self.glow_check.setChecked(bool(preset["glow"]))
+        self.glow_strength_spin.setValue(float(preset["glow_strength"]))
+        self._emit_preview()
 
     # ------------------------------------------------------------------ helpers
     def _rebuild_languages(self) -> None:
@@ -211,12 +270,9 @@ class SettingsDialog(QDialog):
             max(0, self.language_combo.findData(DEFAULTS["language"]))
         )
         self.optional_check.setChecked(bool(DEFAULTS["enable_optional_locales"]))
-        self.active_button._color = QColor(DEFAULTS["active_color"])
-        self.active_button._refresh()
-        self.inactive_button._color = QColor(DEFAULTS["inactive_color"])
-        self.inactive_button._refresh()
-        self.background_button._color = QColor(DEFAULTS["background_color"])
-        self.background_button._refresh()
+        self.active_button.set_color(DEFAULTS["active_color"])
+        self.inactive_button.set_color(DEFAULTS["inactive_color"])
+        self.background_button.set_color(DEFAULTS["background_color"])
         self.opacity_slider.setValue(int(round(DEFAULTS["opacity"] * 100)))
         self.scale_spin.setValue(DEFAULTS["scale"])
         self.refresh_spin.setValue(DEFAULTS["refresh_ms"])
@@ -230,6 +286,7 @@ class SettingsDialog(QDialog):
         self.date_check.setChecked(bool(DEFAULTS["show_date"]))
         self.dots_check.setChecked(bool(DEFAULTS["show_dots"]))
         self.on_top_check.setChecked(bool(DEFAULTS["always_on_top"]))
+        self._emit_preview()
 
     def values(self) -> dict:
         return {

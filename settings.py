@@ -102,6 +102,11 @@ class Settings:
         self._data.update(values)
         self.save()
 
+    def merge(self, values: Mapping[str, Any], save: bool = True) -> None:
+        self._data.update(values)
+        if save:
+            self.save()
+
     @property
     def data(self) -> dict[str, Any]:
         return dict(self._data)

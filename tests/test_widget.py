@@ -111,6 +111,17 @@ class WidgetSmokeTests(unittest.TestCase):
             finally:
                 widget.close()
 
+    def test_apply_preview_updates_in_memory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings = Settings.load(Path(directory) / "config.json")
+            widget = self._make_widget(settings, "en")
+            try:
+                widget._apply_preview({"language": "de", "refresh_ms": 250})
+                self.assertEqual(widget.locale.code, "de")
+                self.assertEqual(widget._timer.interval(), 250)
+            finally:
+                widget.close()
+
     def test_toggle_optional_switches_away_from_arabic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = Settings.load(Path(directory) / "config.json")

@@ -60,6 +60,29 @@ class SettingsDialogTests(unittest.TestCase):
             finally:
                 dialog.close()
 
+    def test_preset_applies_colours_and_emits_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, dialog = self._dialog(directory)
+            received = []
+            dialog.preview.connect(received.append)
+            try:
+                dialog._apply_preset("Néon")
+                self.assertEqual(dialog.active_button.color(), "#00e5ff")
+                self.assertTrue(received)
+            finally:
+                dialog.close()
+
+    def test_preview_emitted_on_control_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, dialog = self._dialog(directory)
+            received = []
+            dialog.preview.connect(received.append)
+            try:
+                dialog.scale_spin.setValue(1.5)
+                self.assertTrue(received)
+            finally:
+                dialog.close()
+
     def test_accept_persists_values(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings, dialog = self._dialog(directory)

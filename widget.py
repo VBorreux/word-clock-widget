@@ -496,9 +496,18 @@ class ClockWidget(QWidget):
             self._set_language(DEFAULT_LANGUAGE)
 
     def _open_settings(self) -> None:
+        snapshot = self.settings.data
         dialog = SettingsDialog(self.settings, self)
+        dialog.preview.connect(self._apply_preview)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.apply_settings()
+            self.settings.merge(dialog.values(), save=True)
+        else:
+            self.settings.merge(snapshot, save=False)
+        self.apply_settings()
+
+    def _apply_preview(self, values: dict) -> None:
+        self.settings.merge(values, save=False)
+        self.apply_settings()
 
     def _pick_color(self, key: str) -> None:
         current = self._color_setting(key, "#FFFFFF")
