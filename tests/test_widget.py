@@ -97,6 +97,20 @@ class WidgetSmokeTests(unittest.TestCase):
             finally:
                 widget.close()
 
+    def test_footer_grows_window_when_digital_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings = Settings.load(Path(directory) / "config.json")
+            widget = self._make_widget(settings, "en")
+            try:
+                without_footer = widget.height()
+                settings.update(show_digital=True, show_date=True)
+                widget.apply_settings()
+                self.app.processEvents()
+                self.assertGreater(widget.height(), without_footer)
+                self.assertFalse(widget.grab().isNull())
+            finally:
+                widget.close()
+
     def test_toggle_optional_switches_away_from_arabic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = Settings.load(Path(directory) / "config.json")

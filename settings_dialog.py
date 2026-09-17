@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
+    QFontComboBox,
     QFormLayout,
     QHBoxLayout,
     QPushButton,
@@ -118,6 +119,53 @@ class SettingsDialog(QDialog):
         self.glow_check.setChecked(bool(settings.get("glow")))
         form.addRow("", self.glow_check)
 
+        self.glow_strength_spin = QDoubleSpinBox()
+        self.glow_strength_spin.setRange(0.0, 2.0)
+        self.glow_strength_spin.setSingleStep(0.1)
+        self.glow_strength_spin.setDecimals(1)
+        self.glow_strength_spin.setValue(float(settings.get("glow_strength")))
+        form.addRow("Intensité du glow", self.glow_strength_spin)
+
+        self.font_auto_check = QCheckBox("Police automatique (selon la langue)")
+        self.font_auto_check.setChecked(not str(settings.get("font_family") or "").strip())
+        form.addRow("", self.font_auto_check)
+
+        self.font_combo = QFontComboBox()
+        configured_font = str(settings.get("font_family") or "").strip()
+        if configured_font:
+            self.font_combo.setCurrentFont(QFont(configured_font))
+        self.font_auto_check.toggled.connect(
+            lambda auto: self.font_combo.setDisabled(auto)
+        )
+        self.font_combo.setDisabled(self.font_auto_check.isChecked())
+        form.addRow("Police", self.font_combo)
+
+        self.font_scale_spin = QDoubleSpinBox()
+        self.font_scale_spin.setRange(0.5, 1.5)
+        self.font_scale_spin.setSingleStep(0.05)
+        self.font_scale_spin.setDecimals(2)
+        self.font_scale_spin.setValue(float(settings.get("font_scale")))
+        form.addRow("Taille du texte", self.font_scale_spin)
+
+        self.corner_spin = QSpinBox()
+        self.corner_spin.setRange(0, 60)
+        self.corner_spin.setSingleStep(2)
+        self.corner_spin.setSuffix(" px")
+        self.corner_spin.setValue(int(settings.get("corner_radius")))
+        form.addRow("Arrondi des coins", self.corner_spin)
+
+        self.digital_check = QCheckBox("Heure numérique sous la grille")
+        self.digital_check.setChecked(bool(settings.get("show_digital")))
+        form.addRow("", self.digital_check)
+
+        self.clock24_check = QCheckBox("Format 24 h (numérique)")
+        self.clock24_check.setChecked(bool(settings.get("clock_24h")))
+        form.addRow("", self.clock24_check)
+
+        self.date_check = QCheckBox("Afficher la date")
+        self.date_check.setChecked(bool(settings.get("show_date")))
+        form.addRow("", self.date_check)
+
         self.dots_check = QCheckBox("Points des minutes dans les coins")
         self.dots_check.setChecked(bool(settings.get("show_dots")))
         form.addRow("", self.dots_check)
@@ -173,6 +221,13 @@ class SettingsDialog(QDialog):
         self.scale_spin.setValue(DEFAULTS["scale"])
         self.refresh_spin.setValue(DEFAULTS["refresh_ms"])
         self.glow_check.setChecked(bool(DEFAULTS["glow"]))
+        self.glow_strength_spin.setValue(DEFAULTS["glow_strength"])
+        self.font_auto_check.setChecked(not str(DEFAULTS["font_family"]).strip())
+        self.font_scale_spin.setValue(DEFAULTS["font_scale"])
+        self.corner_spin.setValue(DEFAULTS["corner_radius"])
+        self.digital_check.setChecked(bool(DEFAULTS["show_digital"]))
+        self.clock24_check.setChecked(bool(DEFAULTS["clock_24h"]))
+        self.date_check.setChecked(bool(DEFAULTS["show_date"]))
         self.dots_check.setChecked(bool(DEFAULTS["show_dots"]))
         self.on_top_check.setChecked(bool(DEFAULTS["always_on_top"]))
 
@@ -187,6 +242,15 @@ class SettingsDialog(QDialog):
             "scale": self.scale_spin.value(),
             "refresh_ms": self.refresh_spin.value(),
             "glow": self.glow_check.isChecked(),
+            "glow_strength": self.glow_strength_spin.value(),
+            "font_family": ""
+            if self.font_auto_check.isChecked()
+            else self.font_combo.currentFont().family(),
+            "font_scale": self.font_scale_spin.value(),
+            "corner_radius": self.corner_spin.value(),
+            "show_digital": self.digital_check.isChecked(),
+            "clock_24h": self.clock24_check.isChecked(),
+            "show_date": self.date_check.isChecked(),
             "show_dots": self.dots_check.isChecked(),
             "always_on_top": self.on_top_check.isChecked(),
         }

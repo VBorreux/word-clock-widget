@@ -31,6 +31,13 @@ DEFAULTS: dict[str, Any] = {
     "inactive_color": "#222222",
     "background_color": "#101014",
     "refresh_ms": 1000,
+    "show_digital": False,
+    "clock_24h": True,
+    "show_date": False,
+    "font_family": "",
+    "font_scale": 1.0,
+    "glow_strength": 1.0,
+    "corner_radius": 20,
 }
 
 

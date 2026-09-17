@@ -41,6 +41,12 @@ class SettingsDialogTests(unittest.TestCase):
                 self.assertAlmostEqual(values["opacity"], 0.85)
                 self.assertEqual(values["refresh_ms"], 1000)
                 self.assertFalse(values["enable_optional_locales"])
+                self.assertFalse(values["show_digital"])
+                self.assertTrue(values["clock_24h"])
+                self.assertFalse(values["show_date"])
+                self.assertEqual(values["font_family"], "")
+                self.assertEqual(values["glow_strength"], 1.0)
+                self.assertEqual(values["corner_radius"], 20)
             finally:
                 dialog.close()
 

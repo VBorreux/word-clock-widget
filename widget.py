@@ -70,6 +70,7 @@ class ClockWidget(QWidget):
         self.settings = settings
         self.locale = locale
         self._font_family = _pick_font(locale)
+        self._refresh_font()
         self._drag_offset: QPoint | None = None
         self._system_move = False
         self._active_cells: set[tuple[int, int]] = set()
@@ -102,11 +103,20 @@ class ClockWidget(QWidget):
             flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
 
+    def _footer_height(self) -> float:
+        if not (self.settings.get("show_digital") or self.settings.get("show_date")):
+            return 0.0
+        return self._cell * 1.1
+
     def _resize_to_board(self) -> None:
         scale = float(self.settings.get("scale") or 1.0)
         self._cell = CELL_SIZE * scale
         width = int(self.locale.width * self._cell + 2 * BOARD_MARGIN)
-        height = int(self.locale.height * self._cell + 2 * BOARD_MARGIN)
+        height = int(
+            self.locale.height * self._cell
+            + 2 * BOARD_MARGIN
+            + self._footer_height()
+        )
         self.setFixedSize(width, height)
 
     def _apply_refresh_rate(self) -> None:
@@ -187,21 +197,26 @@ class ClockWidget(QWidget):
         background.setAlphaF(max(0.05, min(1.0, opacity)))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(background)
+        try:
+            radius = max(0.0, min(80.0, float(self.settings.get("corner_radius"))))
+        except (TypeError, ValueError):
+            radius = CORNER_RADIUS
         painter.drawRoundedRect(
             QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5),
-            CORNER_RADIUS,
-            CORNER_RADIUS,
+            radius,
+            radius,
         )
 
         cell = self._cell
         font = QFont(self._font_family)
-        font.setPixelSize(max(8, int(cell * 0.6)))
+        font.setPixelSize(max(8, int(cell * 0.6 * self._font_scale())))
         font.setWeight(QFont.Weight.Medium)
         painter.setFont(font)
 
         inactive = self._color_setting("inactive_color", "#222222")
         active = self._color_setting("active_color", "#FFFFFF")
         glow = bool(self.settings.get("glow"))
+        strength = self._glow_strength()
         covered: set[tuple[int, int]] = set()
 
         if self.locale.rtl:
@@ -213,7 +228,7 @@ class ClockWidget(QWidget):
                     cell,
                 )
                 self._draw_text(
-                    painter, rect, self.locale.label(token), active, glow
+                    painter, rect, self.locale.label(token), active, glow, strength
                 )
                 for offset in range(length):
                     covered.add((row, col + offset))
@@ -230,7 +245,12 @@ class ClockWidget(QWidget):
                 )
                 if (row, col) in self._active_cells:
                     self._draw_text(
-                        painter, rect, self.locale.grid[row][col], active, glow
+                        painter,
+                        rect,
+                        self.locale.grid[row][col],
+                        active,
+                        glow,
+                        strength,
                     )
                 else:
                     painter.setPen(inactive)
@@ -243,7 +263,43 @@ class ClockWidget(QWidget):
         if self.settings.get("show_dots"):
             self._draw_dots(painter, cell)
 
+        self._draw_footer(painter, active)
+
         painter.end()
+
+    def _draw_footer(self, painter: QPainter, color: QColor) -> None:
+        show_digital = bool(self.settings.get("show_digital"))
+        show_date = bool(self.settings.get("show_date"))
+        if not (show_digital or show_date):
+            return
+        now = _dt.datetime.now()
+        lines: list[str] = []
+        if show_digital:
+            if self.settings.get("clock_24h"):
+                lines.append(f"{now.hour:02d}:{now.minute:02d}")
+            else:
+                hour12 = now.hour % 12 or 12
+                suffix = "AM" if now.hour < 12 else "PM"
+                lines.append(f"{hour12}:{now.minute:02d} {suffix}")
+        if show_date:
+            lines.append(now.strftime("%a %d %b %Y"))
+
+        board_bottom = BOARD_MARGIN + self.locale.height * self._cell
+        footer = QRectF(
+            0,
+            board_bottom,
+            self.width(),
+            self.height() - board_bottom,
+        )
+        font = QFont(self._font_family)
+        font.setPixelSize(max(8, int(self._cell * 0.42)))
+        painter.setFont(font)
+        painter.setPen(color)
+        painter.drawText(
+            footer,
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
+            "\n".join(lines),
+        )
 
     def _color_setting(self, key: str, fallback: str) -> QColor:
         color = QColor(str(self.settings.get(key)))
@@ -251,14 +307,39 @@ class ClockWidget(QWidget):
             color = QColor(fallback)
         return color
 
+    def _refresh_font(self) -> None:
+        configured = str(self.settings.get("font_family") or "").strip()
+        self._font_family = configured or _pick_font(self.locale)
+
+    def _font_scale(self) -> float:
+        try:
+            return max(0.4, min(2.0, float(self.settings.get("font_scale"))))
+        except (TypeError, ValueError):
+            return 1.0
+
+    def _glow_strength(self) -> float:
+        try:
+            return max(0.0, min(3.0, float(self.settings.get("glow_strength"))))
+        except (TypeError, ValueError):
+            return 1.0
+
     def _draw_text(
-        self, painter: QPainter, rect: QRectF, text: str, color: QColor, glow: bool
+        self,
+        painter: QPainter,
+        rect: QRectF,
+        text: str,
+        color: QColor,
+        glow: bool,
+        strength: float = 1.0,
     ) -> None:
-        if glow:
+        if glow and strength > 0:
             halo = QColor(color)
-            halo.setAlpha(70)
+            halo.setAlpha(max(0, min(255, int(70 * strength))))
             painter.setPen(halo)
-            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1)):
+            offsets = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1)]
+            if strength >= 1.6:
+                offsets += [(-2, 0), (2, 0), (0, -2), (0, 2)]
+            for dx, dy in offsets:
                 painter.drawText(
                     rect.translated(dx, dy), Qt.AlignmentFlag.AlignCenter, text
                 )
@@ -269,10 +350,11 @@ class ClockWidget(QWidget):
         count = minute_dots(_dt.datetime.now().minute)
         corners = ((0, 0), (1, 0), (1, 1), (0, 1))
         radius = max(2.0, cell * 0.09)
+        board_height = self.locale.height * cell + 2 * BOARD_MARGIN
         painter.setPen(Qt.PenStyle.NoPen)
         for index, (rx, ry) in enumerate(corners):
             cx = BOARD_MARGIN / 2 + rx * (self.width() - BOARD_MARGIN)
-            cy = BOARD_MARGIN / 2 + ry * (self.height() - BOARD_MARGIN)
+            cy = BOARD_MARGIN / 2 + ry * (board_height - BOARD_MARGIN)
             painter.setBrush(QColor(255, 255, 255) if index < count else QColor(60, 60, 60))
             painter.drawEllipse(QPointF(cx, cy), radius, radius)
 
@@ -388,7 +470,7 @@ class ClockWidget(QWidget):
     # ------------------------------------------------------------ menu handlers
     def _set_language(self, code: str) -> None:
         self.locale = get_locale(code)
-        self._font_family = _pick_font(self.locale)
+        self._refresh_font()
         self.settings.set("language", code)
         self._refresh_active()
         self._resize_to_board()
@@ -432,7 +514,7 @@ class ClockWidget(QWidget):
                 self.locale = get_locale(code)
             except Exception:
                 self.locale = get_locale(DEFAULT_LANGUAGE)
-            self._font_family = _pick_font(self.locale)
+            self._refresh_font()
         self._apply_window_flags()
         self._apply_refresh_rate()
         self._refresh_active()
