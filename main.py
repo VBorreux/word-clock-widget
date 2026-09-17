@@ -13,7 +13,8 @@ from widget import ClockWidget
 
 def main() -> int:
     validate_all()
-    app = QApplication(sys.argv)
+    open_settings = "--settings" in sys.argv
+    app = QApplication([arg for arg in sys.argv if arg != "--settings"])
     app.setApplicationName("Qlocktwo")
     app.setApplicationDisplayName("Qlocktwo")
     app.setQuitOnLastWindowClosed(True)
@@ -26,6 +27,8 @@ def main() -> int:
 
     widget = ClockWidget(settings, locale)
     widget.show()
+    if open_settings:
+        widget._open_settings()
     return app.exec()
 
 

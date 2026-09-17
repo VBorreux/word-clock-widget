@@ -76,6 +76,27 @@ class WidgetSmokeTests(unittest.TestCase):
             finally:
                 widget.close()
 
+    def test_apply_settings_updates_refresh_language_and_size(self) -> None:
+        from widget import CELL_SIZE
+
+        with tempfile.TemporaryDirectory() as directory:
+            settings = Settings.load(Path(directory) / "config.json")
+            settings.update(
+                refresh_ms=250,
+                language="de",
+                active_color="#ff0000",
+                background_color="#000080",
+                scale=1.5,
+            )
+            widget = self._make_widget(settings, "en")
+            try:
+                widget.apply_settings()
+                self.assertEqual(widget._timer.interval(), 250)
+                self.assertEqual(widget.locale.code, "de")
+                self.assertEqual(widget._cell, CELL_SIZE * 1.5)
+            finally:
+                widget.close()
+
     def test_toggle_optional_switches_away_from_arabic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = Settings.load(Path(directory) / "config.json")

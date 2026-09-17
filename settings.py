@@ -19,6 +19,10 @@ DEFAULTS: dict[str, Any] = {
     "glow": True,
     "enable_optional_locales": False,
     "position": None,
+    "active_color": "#FFFFFF",
+    "inactive_color": "#222222",
+    "background_color": "#101014",
+    "refresh_ms": 1000,
 }
 
 

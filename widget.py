@@ -15,10 +15,17 @@ from PyQt6.QtGui import (
     QPainter,
     QShortcut,
 )
-from PyQt6.QtWidgets import QApplication, QMenu, QWidget
+from PyQt6.QtWidgets import QApplication, QColorDialog, QDialog, QMenu, QWidget
 
-from locales import Locale, get_available_locales, get_locale, minute_dots
+from locales import (
+    DEFAULT_LANGUAGE,
+    Locale,
+    get_available_locales,
+    get_locale,
+    minute_dots,
+)
 from settings import Settings
+from settings_dialog import SettingsDialog
 
 CELL_SIZE = 30.0
 BOARD_MARGIN = 22.0
@@ -70,11 +77,10 @@ class ClockWidget(QWidget):
         self._cell = CELL_SIZE
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self._show_menu)
 
         for sequence in ("Ctrl+Q", "Esc"):
             QShortcut(QKeySequence(sequence), self, activated=self._quit)
+        QShortcut(QKeySequence("Ctrl+,"), self, activated=self._open_settings)
 
         self._apply_window_flags()
         self._refresh_active()
@@ -83,8 +89,8 @@ class ClockWidget(QWidget):
 
         self._last_minute = _dt.datetime.now().minute
         self._timer = QTimer(self)
-        self._timer.setInterval(1000)
         self._timer.timeout.connect(self._tick)
+        self._apply_refresh_rate()
         self._timer.start()
 
     # ------------------------------------------------------------------ window
@@ -102,6 +108,13 @@ class ClockWidget(QWidget):
         width = int(self.locale.width * self._cell + 2 * BOARD_MARGIN)
         height = int(self.locale.height * self._cell + 2 * BOARD_MARGIN)
         self.setFixedSize(width, height)
+
+    def _apply_refresh_rate(self) -> None:
+        try:
+            interval = int(self.settings.get("refresh_ms"))
+        except (TypeError, ValueError):
+            interval = 1000
+        self._timer.setInterval(max(100, min(5000, interval)))
 
     def _restore_position(self) -> None:
         position = self.settings.get("position")
@@ -170,7 +183,7 @@ class ClockWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
 
         opacity = float(self.settings.get("opacity") or 1.0)
-        background = QColor(16, 16, 20)
+        background = self._color_setting("background_color", "#101014")
         background.setAlphaF(max(0.05, min(1.0, opacity)))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(background)
@@ -186,8 +199,8 @@ class ClockWidget(QWidget):
         font.setWeight(QFont.Weight.Medium)
         painter.setFont(font)
 
-        inactive = QColor("#222222")
-        active = QColor("#FFFFFF")
+        inactive = self._color_setting("inactive_color", "#222222")
+        active = self._color_setting("active_color", "#FFFFFF")
         glow = bool(self.settings.get("glow"))
         covered: set[tuple[int, int]] = set()
 
@@ -229,6 +242,12 @@ class ClockWidget(QWidget):
             self._draw_dots(painter, cell)
 
         painter.end()
+
+    def _color_setting(self, key: str, fallback: str) -> QColor:
+        color = QColor(str(self.settings.get(key)))
+        if not color.isValid():
+            color = QColor(fallback)
+        return color
 
     def _draw_text(
         self, painter: QPainter, rect: QRectF, text: str, color: QColor, glow: bool
@@ -292,8 +311,18 @@ class ClockWidget(QWidget):
             super().mouseReleaseEvent(event)
 
     # ------------------------------------------------------------- context menu
-    def _show_menu(self, position: QPoint) -> None:
+    def contextMenuEvent(self, event) -> None:  # noqa: N802
+        menu = self._build_menu()
+        menu.exec(event.globalPos())
+        event.accept()
+
+    def _build_menu(self) -> QMenu:
         menu = QMenu(self)
+
+        settings_action = menu.addAction("Réglages…")
+        settings_action.triggered.connect(self._open_settings)
+
+        menu.addSeparator()
 
         language_menu = menu.addMenu("Langue")
         language_group = QActionGroup(language_menu)
@@ -325,6 +354,17 @@ class ClockWidget(QWidget):
             action.setChecked(abs(float(self.settings.get("scale")) - value) < 1e-6)
             action.triggered.connect(lambda checked=False, v=value: self._set_scale(v))
 
+        colors_menu = menu.addMenu("Couleurs")
+        colors_menu.addAction("Lettres actives…").triggered.connect(
+            lambda: self._pick_color("active_color")
+        )
+        colors_menu.addAction("Lettres inactives…").triggered.connect(
+            lambda: self._pick_color("inactive_color")
+        )
+        colors_menu.addAction("Fond…").triggered.connect(
+            lambda: self._pick_color("background_color")
+        )
+
         menu.addSeparator()
 
         top_action = menu.addAction("Toujours au-dessus")
@@ -341,7 +381,7 @@ class ClockWidget(QWidget):
         quit_action = menu.addAction("Quitter")
         quit_action.triggered.connect(self._quit)
 
-        menu.exec(self.mapToGlobal(position))
+        return menu
 
     # ------------------------------------------------------------ menu handlers
     def _set_language(self, code: str) -> None:
@@ -369,4 +409,31 @@ class ClockWidget(QWidget):
     def _toggle_optional(self, checked: bool) -> None:
         self.settings.set("enable_optional_locales", checked)
         if not checked and self.locale.optional:
-            self._set_language("en")
+            self._set_language(DEFAULT_LANGUAGE)
+
+    def _open_settings(self) -> None:
+        dialog = SettingsDialog(self.settings, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.apply_settings()
+
+    def _pick_color(self, key: str) -> None:
+        current = self._color_setting(key, "#FFFFFF")
+        chosen = QColorDialog.getColor(current, self, "Choisir une couleur")
+        if chosen.isValid():
+            self.settings.set(key, chosen.name())
+            self.update()
+
+    def apply_settings(self) -> None:
+        code = str(self.settings.get("language"))
+        if code != self.locale.code:
+            try:
+                self.locale = get_locale(code)
+            except Exception:
+                self.locale = get_locale(DEFAULT_LANGUAGE)
+            self._font_family = _pick_font(self.locale)
+        self._apply_window_flags()
+        self._apply_refresh_rate()
+        self._refresh_active()
+        self._resize_to_board()
+        self.show()
+        self.update()
