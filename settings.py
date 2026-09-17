@@ -38,6 +38,7 @@ DEFAULTS: dict[str, Any] = {
     "font_scale": 1.0,
     "glow_strength": 1.0,
     "corner_radius": 20,
+    "show_tray": True,
 }
 
 

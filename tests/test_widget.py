@@ -122,6 +122,19 @@ class WidgetSmokeTests(unittest.TestCase):
             finally:
                 widget.close()
 
+    def test_tray_icon_and_creation_are_optional(self) -> None:
+        from tray import create_tray, make_icon
+
+        self.assertFalse(make_icon().isNull())
+        with tempfile.TemporaryDirectory() as directory:
+            settings = Settings.load(Path(directory) / "config.json")
+            widget = self._make_widget(settings, "en")
+            try:
+                tray = create_tray(widget)
+                self.assertTrue(tray is None or hasattr(tray, "hide"))
+            finally:
+                widget.close()
+
     def test_toggle_optional_switches_away_from_arabic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = Settings.load(Path(directory) / "config.json")

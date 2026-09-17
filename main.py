@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QApplication
 
 from locales import DEFAULT_LANGUAGE, get_locale, validate_all
 from settings import Settings
+from tray import create_tray
 from widget import ClockWidget
 
 
@@ -27,6 +28,8 @@ def main() -> int:
 
     widget = ClockWidget(settings, locale)
     widget.show()
+    tray = create_tray(widget) if settings.get("show_tray") else None
+    widget._tray = tray
     if open_settings:
         widget._open_settings()
     return app.exec()
