@@ -212,7 +212,9 @@ class ClockWidget(QWidget):
                     length * cell,
                     cell,
                 )
-                self._draw_text(painter, rect, token, active, glow)
+                self._draw_text(
+                    painter, rect, self.locale.label(token), active, glow
+                )
                 for offset in range(length):
                     covered.add((row, col + offset))
 

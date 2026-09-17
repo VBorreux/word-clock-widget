@@ -1,9 +1,13 @@
 """Shared building blocks for every language definition.
 
 A locale is described by a rectangular grid of letters plus a mapping from a
-word token to the list of grid segments that spell it.  The helper functions in
-this module build both pieces from a simple, ordered list of words so that each
-language file stays declarative and readable.
+token to the grid segments that spell it.  Tokens carry a *name* that may
+differ from the displayed word (``FIVE_M`` for the minute "FIVE", ``FIVE_H``
+for the hour "FIVE"): this lets the same word appear at two different places in
+the grid, exactly like the original Qlocktwo.
+
+Words are laid out in reading order, so that the illuminated words of any time
+read naturally from top-left to bottom-right.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ class Locale:
     name: str
     grid: tuple[str, ...]
     words: Mapping[str, tuple[Segment, ...]]
+    labels: Mapping[str, str]
     build: Callable[[int, int], list[str]]
     optional: bool = False
     rtl: bool = False
@@ -39,6 +44,9 @@ class Locale:
     def segments(self, token: str) -> tuple[Segment, ...]:
         return tuple(self.words.get(token, ()))
 
+    def label(self, token: str) -> str:
+        return self.labels.get(token, token)
+
     def validate(self) -> None:
         if not self.grid:
             raise LocaleError(f"{self.code}: empty grid")
@@ -53,6 +61,8 @@ class Locale:
         for token, segments in self.words.items():
             if not token:
                 raise LocaleError(f"{self.code}: empty token")
+            if not segments:
+                raise LocaleError(f"{self.code}: token {token!r} has no segment")
             for row, col, length in segments:
                 if length <= 0:
                     raise LocaleError(f"{self.code}: token {token!r} has empty segment")
@@ -68,33 +78,26 @@ class Locale:
 
 
 def pack_placements(
-    tokens: Iterable[tuple[str, str]], width: int, height: int
+    tokens: Sequence[tuple[str, str]], width: int, height: int
 ) -> list[tuple[int, int, str, str]]:
-    """Place words in reading order, filling each row with the next words that fit.
+    """Place words strictly in reading order, wrapping to the next row.
 
-    Keeping the original order means phrases tend to be illuminated from top to
-    bottom, while the "scan all remaining words" step keeps the grid compact.
+    Strict order is what guarantees that a phrase illuminates words from
+    top-left to bottom-right.
     """
-    remaining = list(tokens)
-    for _, word in remaining:
-        if len(word) > width:
-            raise LocaleError(f"word {word!r} wider than grid ({width})")
-
     placements: list[tuple[int, int, str, str]] = []
     row = 0
-    while remaining:
+    col = 0
+    for token, word in tokens:
+        if len(word) > width:
+            raise LocaleError(f"word {word!r} wider than grid ({width})")
+        if col + len(word) > width:
+            row += 1
+            col = 0
         if row >= height:
             raise LocaleError(f"grid {width}x{height} too small to hold all words")
-        col = 0
-        leftover: list[tuple[str, str]] = []
-        for token, word in remaining:
-            if col + len(word) <= width:
-                placements.append((row, col, word, token))
-                col += len(word)
-            else:
-                leftover.append((token, word))
-        remaining = leftover
-        row += 1
+        placements.append((row, col, word, token))
+        col += len(word)
     return placements
 
 
@@ -134,29 +137,28 @@ def make_grid(
 
 def make_standard_build(
     intro: Sequence[str],
-    hours: Mapping[int, Sequence[str]],
+    hours: Sequence[Sequence[str]],
     minute_map: Mapping[int, tuple[Sequence[str], int]],
     oclock: Sequence[str] = (),
+    minute_first: bool = False,
 ) -> Callable[[int, int], list[str]]:
-    """Build the token list for a given time.
+    """Build the token names for a given time, in reading order.
 
-    ``minute_map`` maps a five minute bucket (5..55) to the tokens to light and
-    an hour offset (0 for "past", +1 for "to" constructions).
+    ``hours`` is indexed 0..11 for hours 1..12.  ``minute_map`` maps a five
+    minute bucket (5..55) to the tokens to light and an hour offset (0 for
+    "past", +1 for "to" constructions).
     """
 
     def build(hour: int, minute: int) -> list[str]:
         normalized = hour % 12 or 12
         bucket = (minute // 5) * 5
-        tokens = list(intro)
         if bucket == 0:
-            tokens += list(hours[normalized])
-            tokens += list(oclock)
-        else:
-            minute_tokens, offset = minute_map[bucket]
-            target = (normalized + offset - 1) % 12 + 1
-            tokens += list(hours[target])
-            tokens += list(minute_tokens)
-        return tokens
+            return list(intro) + list(hours[normalized - 1]) + list(oclock)
+        minute_tokens, offset = minute_map[bucket]
+        target = (normalized + offset - 1) % 12 + 1
+        if minute_first:
+            return list(intro) + list(minute_tokens) + list(hours[target - 1])
+        return list(intro) + list(hours[target - 1]) + list(minute_tokens)
 
     return build
 
@@ -165,43 +167,28 @@ def build_locale(
     *,
     code: str,
     name: str,
-    intro: Sequence[str],
-    hours: Sequence[Sequence[str]],
-    minute_map: Mapping[int, tuple[Sequence[str], int]],
+    tokens: Mapping[str, str],
+    order: Sequence[str],
+    build: Callable[[int, int], list[str]],
     filler: str,
-    oclock: Sequence[str] = (),
-    extra_tokens: Sequence[str] = (),
     width: int = 11,
     height: int = 11,
     optional: bool = False,
     rtl: bool = False,
 ) -> Locale:
-    ordered: list[tuple[str, str]] = []
-    seen: set[str] = set()
-
-    def add(tokens: Iterable[str]) -> None:
-        for token in tokens:
-            if token not in seen:
-                seen.add(token)
-                ordered.append((token, token))
-
-    add(intro)
-    for hour_tokens in hours:
-        add(hour_tokens)
-    for bucket in sorted(minute_map):
-        add(minute_map[bucket][0])
-    add(oclock)
-    add(extra_tokens)
-
-    placements = pack_placements(ordered, width, height)
+    missing = [token for token in order if token not in tokens]
+    if missing:
+        raise LocaleError(f"{code}: tokens missing for {missing}")
+    placements = pack_placements(
+        [(token, tokens[token]) for token in order], width, height
+    )
     grid, words = make_grid(placements, width, height, filler)
-    hour_dict = {index + 1: tuple(tokens) for index, tokens in enumerate(hours)}
-    build = make_standard_build(intro, hour_dict, minute_map, oclock)
     locale = Locale(
         code=code,
         name=name,
         grid=grid,
         words=words,
+        labels=dict(tokens),
         build=build,
         optional=optional,
         rtl=rtl,

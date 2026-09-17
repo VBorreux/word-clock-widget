@@ -1,25 +1,75 @@
-"""Chinese (Simplified Mandarin) locale."""
+"""Chinese (Simplified Mandarin) locale: "现在十点十五分"."""
 
-from .base import build_locale
+from .base import build_locale, make_standard_build
+
+TOKENS = {
+    "现在": "现在",
+    "十一": "十一",
+    "十二": "十二",
+    "一": "一",
+    "二": "二",
+    "三": "三",
+    "四": "四",
+    "五_H": "五",
+    "六": "六",
+    "七": "七",
+    "八": "八",
+    "九": "九",
+    "十_H": "十",
+    "点": "点",
+    "二十五": "二十五",
+    "三十五": "三十五",
+    "四十五": "四十五",
+    "五十五": "五十五",
+    "十五": "十五",
+    "二十": "二十",
+    "三十": "三十",
+    "四十": "四十",
+    "五十": "五十",
+    "五_M": "五",
+    "十_M": "十",
+    "半": "半",
+    "分": "分",
+}
+
+INTRO = ["现在"]
+HOUR_WORDS = ["十一", "十二", "一", "二", "三", "四", "五_H", "六", "七", "八", "九", "十_H"]
+HOUR_UNITS = ["点"]
+MINUTE_WORDS = [
+    "二十五",
+    "三十五",
+    "四十五",
+    "五十五",
+    "十五",
+    "二十",
+    "三十",
+    "四十",
+    "五十",
+    "五_M",
+    "十_M",
+    "半",
+]
+MINUTE_UNITS = ["分"]
+ORDER = INTRO + HOUR_WORDS + HOUR_UNITS + MINUTE_WORDS + MINUTE_UNITS
 
 HOURS = [
     ["一", "点"],
     ["二", "点"],
     ["三", "点"],
     ["四", "点"],
-    ["五", "点"],
+    ["五_H", "点"],
     ["六", "点"],
     ["七", "点"],
     ["八", "点"],
     ["九", "点"],
-    ["十", "点"],
+    ["十_H", "点"],
     ["十一", "点"],
     ["十二", "点"],
 ]
 
 MINUTE_MAP = {
-    5: (["五", "分"], 0),
-    10: (["十", "分"], 0),
+    5: (["五_M", "分"], 0),
+    10: (["十_M", "分"], 0),
     15: (["十五", "分"], 0),
     20: (["二十", "分"], 0),
     25: (["二十五", "分"], 0),
@@ -31,11 +81,13 @@ MINUTE_MAP = {
     55: (["五十五", "分"], 0),
 }
 
+BUILD = make_standard_build(INTRO, HOURS, MINUTE_MAP)
+
 LOCALE = build_locale(
     code="zh",
     name="中文",
-    intro=["现在"],
-    hours=HOURS,
-    minute_map=MINUTE_MAP,
+    tokens=TOKENS,
+    order=ORDER,
+    build=BUILD,
     filler="的一是不了在人有我他这中大来上国个到说们为子和你地出道也时年得就那要下以生会自着去之过家学对",
 )

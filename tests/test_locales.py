@@ -48,8 +48,24 @@ class LocaleDataTests(unittest.TestCase):
                         found = locale.grid[row][col : col + length]
                         self.assertEqual(
                             found,
-                            token,
+                            locale.label(token),
                             f"{code}: grid says {found!r}, token is {token!r}",
+                        )
+
+    def test_words_are_lit_in_reading_order(self) -> None:
+        for code, locale in LANGUAGES.items():
+            with self.subTest(code=code):
+                for hour in range(1, 13):
+                    for minute in range(0, 60, 5):
+                        tokens = locale.build(hour, minute)
+                        positions = [
+                            min((row, col) for row, col, _ in locale.segments(token))
+                            for token in tokens
+                        ]
+                        self.assertEqual(
+                            positions,
+                            sorted(positions),
+                            f"{code} {hour}:{minute} -> {tokens}",
                         )
 
     def test_build_is_exhaustive(self) -> None:
@@ -65,15 +81,36 @@ class LocaleDataTests(unittest.TestCase):
 
     def test_quarter_buckets_light_expected_tokens(self) -> None:
         english = get_locale("en")
+
+        def words(tokens):
+            return [english.label(token) for token in tokens]
+
         self.assertEqual(
-            english.build(10, 15),
-            ["IT", "IS", "TEN", "QUARTER", "PAST"],
+            words(english.build(10, 15)), ["IT", "IS", "QUARTER", "PAST", "TEN"]
         )
         self.assertEqual(
-            english.build(10, 45),
-            ["IT", "IS", "ELEVEN", "QUARTER", "TO"],
+            words(english.build(10, 45)), ["IT", "IS", "QUARTER", "TO", "ELEVEN"]
         )
-        self.assertEqual(english.build(10, 0), ["IT", "IS", "TEN", "OCLOCK"])
+        self.assertEqual(words(english.build(10, 0)), ["IT", "IS", "TEN", "OCLOCK"])
+
+    def test_french_reads_naturally(self) -> None:
+        french = get_locale("fr")
+
+        def words(tokens):
+            return [french.label(token) for token in tokens]
+
+        self.assertEqual(
+            words(french.build(10, 45)),
+            ["IL", "EST", "ONZE", "HEURES", "MOINS", "LE", "QUART"],
+        )
+        self.assertEqual(
+            words(french.build(10, 35)),
+            ["IL", "EST", "ONZE", "HEURES", "MOINS", "VINGT", "CINQ"],
+        )
+        self.assertEqual(
+            words(french.build(10, 30)),
+            ["IL", "EST", "DIX", "HEURES", "ET", "DEMIE"],
+        )
 
     def test_minute_dots(self) -> None:
         for minute in range(60):
