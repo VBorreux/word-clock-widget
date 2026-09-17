@@ -72,6 +72,7 @@ Priority: optional
 Architecture: amd64
 Maintainer: Vincent Borreux <vb4git@gmail.com>
 Depends: libc6
+Recommends: libxcb-cursor0
 Description: Qlocktwo-style desktop clock widget
  A frameless word-clock widget with 10 languages, customisable colours,
  opacity, size and refresh rate.
