@@ -427,6 +427,21 @@ _CANCEL = {
 for _code, _table in TRANSLATIONS.items():
     _table.setdefault("cancel", _CANCEL.get(_code, "Cancel"))
 
+_CLOSE = {
+    "en": "Close",
+    "fr": "Fermer",
+    "de": "Schließen",
+    "es": "Cerrar",
+    "it": "Chiudi",
+    "nl": "Sluiten",
+    "pt": "Fechar",
+    "ru": "Закрыть",
+    "zh": "关闭",
+    "ar": "إغلاق",
+}
+for _code, _table in TRANSLATIONS.items():
+    _table.setdefault("close", _CLOSE.get(_code, "Close"))
+
 
 def tr(code: str, key: str) -> str:
     table = TRANSLATIONS.get(code) or TRANSLATIONS[FALLBACK]
