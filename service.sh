@@ -9,6 +9,8 @@
 #   ./service.sh start|stop|restart|status
 #   ./service.sh autostart      # add a ~/.config/autostart entry
 #   ./service.sh no-autostart   # remove it
+#   ./service.sh desktop        # add the app to the applications list
+#   ./service.sh no-desktop     # remove it
 #
 set -euo pipefail
 
@@ -19,6 +21,11 @@ SERVICE_DIR="$CONFIG_HOME/systemd/user"
 UNIT_PATH="$SERVICE_DIR/$SERVICE_NAME.service"
 AUTOSTART_DIR="$CONFIG_HOME/autostart"
 DESKTOP_PATH="$AUTOSTART_DIR/$SERVICE_NAME.desktop"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+APPLICATIONS_DIR="$DATA_HOME/applications"
+ICON_DIR="$DATA_HOME/icons/hicolor/scalable/apps"
+APP_ENTRY="$APPLICATIONS_DIR/$SERVICE_NAME.desktop"
+APP_ICON="$ICON_DIR/$SERVICE_NAME.svg"
 
 write_unit() {
     mkdir -p "$SERVICE_DIR"
@@ -54,6 +61,32 @@ Exec=$SCRIPT_DIR/run.sh
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
+}
+
+write_app_entry() {
+    mkdir -p "$APPLICATIONS_DIR" "$ICON_DIR"
+    cp "$SCRIPT_DIR/assets/qlocktwo.svg" "$APP_ICON"
+    cat > "$APP_ENTRY" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Qlocktwo
+GenericName=Word clock
+Comment=Qlocktwo-style desktop clock widget
+Exec=$SCRIPT_DIR/run.sh --no-install
+Icon=$SERVICE_NAME
+Terminal=false
+Categories=Utility;Clock;
+Keywords=clock;time;word;qlocktwo;
+StartupWMClass=$SERVICE_NAME
+EOF
+    chmod 0644 "$APP_ENTRY" "$APP_ICON"
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+    fi
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -f -t "$DATA_HOME/icons/hicolor" >/dev/null 2>&1 || true
+    fi
 }
 
 require_systemd() {
@@ -99,8 +132,20 @@ case "${1:-}" in
         rm -f "$DESKTOP_PATH"
         echo "[service.sh] Autostart entry removed."
         ;;
+    desktop)
+        write_app_entry
+        echo "[service.sh] Application entry installed: $APP_ENTRY"
+        echo "[service.sh] It should now appear in the applications list."
+        ;;
+    no-desktop)
+        rm -f "$APP_ENTRY" "$APP_ICON"
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database "$APPLICATIONS_DIR" >/dev/null 2>&1 || true
+        fi
+        echo "[service.sh] Application entry removed."
+        ;;
     *)
-        echo "Usage: $0 {install|uninstall|start|stop|restart|status|autostart|no-autostart}" >&2
+        echo "Usage: $0 {install|uninstall|start|stop|restart|status|autostart|no-autostart|desktop|no-desktop}" >&2
         exit 2
         ;;
 esac

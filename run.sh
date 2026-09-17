@@ -108,4 +108,10 @@ if [ "${1:-}" = "test" ]; then
     exec python -m unittest discover -s tests -v "$@"
 fi
 
+# Single instance: don't start a second widget if one is already running.
+if pgrep -u "$(id -u)" -f "[m]ain.py" >/dev/null 2>&1; then
+    echo "[run.sh] The widget is already running."
+    exit 0
+fi
+
 exec python main.py "$@"
