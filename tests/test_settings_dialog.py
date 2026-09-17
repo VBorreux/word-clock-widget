@@ -66,7 +66,7 @@ class SettingsDialogTests(unittest.TestCase):
             received = []
             dialog.preview.connect(received.append)
             try:
-                dialog._apply_preset("Néon")
+                dialog._apply_preset("neon")
                 self.assertEqual(dialog.active_button.color(), "#00e5ff")
                 self.assertTrue(received)
             finally:
@@ -80,6 +80,26 @@ class SettingsDialogTests(unittest.TestCase):
             try:
                 dialog.scale_spin.setValue(1.5)
                 self.assertTrue(received)
+            finally:
+                dialog.close()
+
+    def test_dialog_follows_application_language(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, dialog = self._dialog(directory)
+            try:
+                dialog.retranslate("fr")
+                self.assertEqual(dialog.windowTitle(), "Réglages du widget")
+                self.assertEqual(dialog._labels["language"].text(), "Langue")
+                dialog.retranslate("de")
+                self.assertEqual(dialog.windowTitle(), "Widget-Einstellungen")
+            finally:
+                dialog.close()
+
+    def test_language_combo_has_flag_icons(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, dialog = self._dialog(directory)
+            try:
+                self.assertFalse(dialog.language_combo.itemIcon(0).isNull())
             finally:
                 dialog.close()
 

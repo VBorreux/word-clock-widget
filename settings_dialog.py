@@ -1,4 +1,7 @@
-"""Settings dialog: language, colours, opacity, size, refresh rate, ..."""
+"""Settings dialog: language, colours, opacity, size, refresh rate, ...
+
+The whole interface follows the selected clock language.
+"""
 
 from __future__ import annotations
 
@@ -22,8 +25,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from flags import flag_icon
+from i18n import tr
 from locales import DEFAULT_LANGUAGE, get_available_locales
-from presets import PRESETS
+from presets import PRESET_LABEL_KEYS, PRESETS
 from settings import DEFAULTS, Settings
 
 _REFRESH_MIN = 100
@@ -35,14 +40,20 @@ class ColorButton(QPushButton):
 
     changed = pyqtSignal()
 
-    def __init__(self, color: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, color: str, title: str = "Choose a colour", parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self._color = QColor(color)
         if not self._color.isValid():
             self._color = QColor("#000000")
+        self._title = title
         self.setMinimumWidth(120)
         self.clicked.connect(self._choose)
         self._refresh()
+
+    def set_title(self, title: str) -> None:
+        self._title = title
 
     def _refresh(self) -> None:
         name = self._color.name().upper()
@@ -60,7 +71,7 @@ class ColorButton(QPushButton):
         self._refresh()
 
     def _choose(self) -> None:
-        chosen = QColorDialog.getColor(self._color, self, "Choisir une couleur")
+        chosen = QColorDialog.getColor(self._color, self, self._title)
         if chosen.isValid():
             self._color = chosen
             self._refresh()
@@ -76,27 +87,28 @@ class SettingsDialog(QDialog):
     def __init__(self, settings: Settings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("Réglages du widget")
+        self._labels: dict[str, QLabel] = {}
+        self._preset_buttons: dict[str, QPushButton] = {}
         self.setModal(True)
 
         form = QFormLayout()
 
         self.language_combo = QComboBox()
-        form.addRow("Langue", self.language_combo)
+        self._add_row(form, "language", self.language_combo)
 
-        self.optional_check = QCheckBox("Afficher les langues optionnelles (arabe)")
+        self.optional_check = QCheckBox()
         self.optional_check.setChecked(bool(settings.get("enable_optional_locales")))
         self.optional_check.toggled.connect(self._rebuild_languages)
         form.addRow("", self.optional_check)
 
         self.active_button = ColorButton(str(settings.get("active_color")))
-        form.addRow("Couleur des lettres actives", self.active_button)
+        self._add_row(form, "active_color", self.active_button)
 
         self.inactive_button = ColorButton(str(settings.get("inactive_color")))
-        form.addRow("Couleur des lettres inactives", self.inactive_button)
+        self._add_row(form, "inactive_color", self.inactive_button)
 
         self.background_button = ColorButton(str(settings.get("background_color")))
-        form.addRow("Couleur de fond", self.background_button)
+        self._add_row(form, "background_color", self.background_button)
 
         self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setRange(5, 100)
@@ -112,23 +124,23 @@ class SettingsDialog(QDialog):
         opacity_row.addWidget(self.opacity_value)
         opacity_widget = QWidget()
         opacity_widget.setLayout(opacity_row)
-        form.addRow("Opacité du fond", opacity_widget)
+        self._add_row(form, "background_opacity", opacity_widget)
 
         self.scale_spin = QDoubleSpinBox()
         self.scale_spin.setRange(0.5, 3.0)
         self.scale_spin.setSingleStep(0.05)
         self.scale_spin.setDecimals(2)
         self.scale_spin.setValue(float(settings.get("scale")))
-        form.addRow("Taille", self.scale_spin)
+        self._add_row(form, "size", self.scale_spin)
 
         self.refresh_spin = QSpinBox()
         self.refresh_spin.setRange(_REFRESH_MIN, _REFRESH_MAX)
         self.refresh_spin.setSingleStep(100)
         self.refresh_spin.setSuffix(" ms")
         self.refresh_spin.setValue(int(settings.get("refresh_ms")))
-        form.addRow("Vitesse de rafraîchissement", self.refresh_spin)
+        self._add_row(form, "refresh_rate", self.refresh_spin)
 
-        self.glow_check = QCheckBox("Effet lumineux (glow)")
+        self.glow_check = QCheckBox()
         self.glow_check.setChecked(bool(settings.get("glow")))
         form.addRow("", self.glow_check)
 
@@ -137,10 +149,12 @@ class SettingsDialog(QDialog):
         self.glow_strength_spin.setSingleStep(0.1)
         self.glow_strength_spin.setDecimals(1)
         self.glow_strength_spin.setValue(float(settings.get("glow_strength")))
-        form.addRow("Intensité du glow", self.glow_strength_spin)
+        self._add_row(form, "glow_strength", self.glow_strength_spin)
 
-        self.font_auto_check = QCheckBox("Police automatique (selon la langue)")
-        self.font_auto_check.setChecked(not str(settings.get("font_family") or "").strip())
+        self.font_auto_check = QCheckBox()
+        self.font_auto_check.setChecked(
+            not str(settings.get("font_family") or "").strip()
+        )
         form.addRow("", self.font_auto_check)
 
         self.font_combo = QFontComboBox()
@@ -151,58 +165,62 @@ class SettingsDialog(QDialog):
             lambda auto: self.font_combo.setDisabled(auto)
         )
         self.font_combo.setDisabled(self.font_auto_check.isChecked())
-        form.addRow("Police", self.font_combo)
+        self._add_row(form, "font", self.font_combo)
 
         self.font_scale_spin = QDoubleSpinBox()
         self.font_scale_spin.setRange(0.5, 1.5)
         self.font_scale_spin.setSingleStep(0.05)
         self.font_scale_spin.setDecimals(2)
         self.font_scale_spin.setValue(float(settings.get("font_scale")))
-        form.addRow("Taille du texte", self.font_scale_spin)
+        self._add_row(form, "font_size", self.font_scale_spin)
 
         self.corner_spin = QSpinBox()
         self.corner_spin.setRange(0, 60)
         self.corner_spin.setSingleStep(2)
         self.corner_spin.setSuffix(" px")
         self.corner_spin.setValue(int(settings.get("corner_radius")))
-        form.addRow("Arrondi des coins", self.corner_spin)
+        self._add_row(form, "corner_radius", self.corner_spin)
 
-        self.digital_check = QCheckBox("Heure numérique sous la grille")
+        self.digital_check = QCheckBox()
         self.digital_check.setChecked(bool(settings.get("show_digital")))
         form.addRow("", self.digital_check)
 
-        self.clock24_check = QCheckBox("Format 24 h (numérique)")
+        self.clock24_check = QCheckBox()
         self.clock24_check.setChecked(bool(settings.get("clock_24h")))
         form.addRow("", self.clock24_check)
 
-        self.date_check = QCheckBox("Afficher la date")
+        self.date_check = QCheckBox()
         self.date_check.setChecked(bool(settings.get("show_date")))
         form.addRow("", self.date_check)
 
-        self.dots_check = QCheckBox("Points des minutes dans les coins")
+        self.dots_check = QCheckBox()
         self.dots_check.setChecked(bool(settings.get("show_dots")))
         form.addRow("", self.dots_check)
 
-        self.on_top_check = QCheckBox("Toujours au-dessus")
+        self.on_top_check = QCheckBox()
         self.on_top_check.setChecked(bool(settings.get("always_on_top")))
         form.addRow("", self.on_top_check)
 
-        buttons = QDialogButtonBox(
+        self._buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel
             | QDialogButtonBox.StandardButton.RestoreDefaults
         )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        buttons.button(QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(
-            self._restore_defaults
-        )
+        self._buttons.accepted.connect(self.accept)
+        self._buttons.rejected.connect(self.reject)
+        self._buttons.button(
+            QDialogButtonBox.StandardButton.RestoreDefaults
+        ).clicked.connect(self._restore_defaults)
 
+        self.preset_label = QLabel()
         preset_row = QHBoxLayout()
-        preset_row.addWidget(QLabel("Thème"))
+        preset_row.addWidget(self.preset_label)
         for name in PRESETS:
-            button = QPushButton(name)
-            button.clicked.connect(lambda checked=False, n=name: self._apply_preset(n))
+            button = QPushButton()
+            button.clicked.connect(
+                lambda checked=False, n=name: self._apply_preset(n)
+            )
+            self._preset_buttons[name] = button
             preset_row.addWidget(button)
         preset_widget = QWidget()
         preset_widget.setLayout(preset_row)
@@ -210,14 +228,20 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addLayout(form)
         layout.addWidget(preset_widget)
-        layout.addWidget(buttons)
+        layout.addWidget(self._buttons)
 
         self._connect_preview()
         self._rebuild_languages()
+        self.retranslate(str(settings.get("language") or DEFAULT_LANGUAGE))
+
+    # ------------------------------------------------------------------ helpers
+    def _add_row(self, form: QFormLayout, key: str, field: QWidget) -> None:
+        label = QLabel()
+        self._labels[key] = label
+        form.addRow(label, field)
 
     def _connect_preview(self) -> None:
         for signal in (
-            self.language_combo.currentIndexChanged,
             self.optional_check.toggled,
             self.opacity_slider.valueChanged,
             self.scale_spin.valueChanged,
@@ -237,6 +261,13 @@ class SettingsDialog(QDialog):
             signal.connect(self._emit_preview)
         for button in (self.active_button, self.inactive_button, self.background_button):
             button.changed.connect(self._emit_preview)
+        self.language_combo.currentIndexChanged.connect(self._on_language_changed)
+
+    def _on_language_changed(self, *args) -> None:
+        code = self.language_combo.currentData()
+        if code:
+            self.retranslate(code)
+        self._emit_preview()
 
     def _emit_preview(self, *args) -> None:
         self.preview.emit(self.values())
@@ -250,20 +281,48 @@ class SettingsDialog(QDialog):
         self.glow_strength_spin.setValue(float(preset["glow_strength"]))
         self._emit_preview()
 
-    # ------------------------------------------------------------------ helpers
     def _rebuild_languages(self) -> None:
         current = self.language_combo.currentData()
         if current is None:
             current = str(self.settings.get("language"))
+        self.language_combo.blockSignals(True)
         self.language_combo.clear()
         for locale in get_available_locales(
             {"enable_optional_locales": self.optional_check.isChecked()}
         ):
-            self.language_combo.addItem(locale.name, locale.code)
+            self.language_combo.addItem(
+                flag_icon(locale.code), locale.name, locale.code
+            )
         index = self.language_combo.findData(current)
         if index < 0:
             index = self.language_combo.findData(DEFAULT_LANGUAGE)
         self.language_combo.setCurrentIndex(max(0, index))
+        self.language_combo.blockSignals(False)
+
+    def retranslate(self, code: str) -> None:
+        self.setWindowTitle(tr(code, "settings_title"))
+        for key, label in self._labels.items():
+            label.setText(tr(code, key))
+        self.optional_check.setText(tr(code, "optional_locales"))
+        self.glow_check.setText(tr(code, "glow"))
+        self.font_auto_check.setText(tr(code, "auto_font"))
+        self.digital_check.setText(tr(code, "digital_time"))
+        self.clock24_check.setText(tr(code, "format_24h"))
+        self.date_check.setText(tr(code, "show_date"))
+        self.dots_check.setText(tr(code, "minute_dots"))
+        self.on_top_check.setText(tr(code, "always_on_top"))
+        self.preset_label.setText(tr(code, "theme"))
+        for name, button in self._preset_buttons.items():
+            button.setText(tr(code, PRESET_LABEL_KEYS[name]))
+        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setText("OK")
+        self._buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            tr(code, "cancel")
+        )
+        self._buttons.button(
+            QDialogButtonBox.StandardButton.RestoreDefaults
+        ).setText(tr(code, "reset_defaults"))
+        for button in (self.active_button, self.inactive_button, self.background_button):
+            button.set_title(tr(code, "choose_color"))
 
     def _restore_defaults(self) -> None:
         self.language_combo.setCurrentIndex(

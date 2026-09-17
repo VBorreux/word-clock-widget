@@ -10,6 +10,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
+from i18n import tr
+
 
 def make_icon(size: int = 64) -> QIcon:
     scale = size / 64.0
@@ -46,23 +48,26 @@ def create_tray(widget: QWidget) -> QSystemTrayIcon | None:
     tray = QSystemTrayIcon(make_icon(), widget)
     tray.setToolTip("Qlocktwo")
 
+    def t(key: str) -> str:
+        return tr(getattr(widget, "locale").code, key)
+
     menu = QMenu()
 
-    toggle_action = menu.addAction("Afficher / Masquer")
+    toggle_action = menu.addAction(t("tray_show_hide"))
     toggle_action.triggered.connect(
         lambda: widget.setVisible(not widget.isVisible())
     )
 
-    settings_action = menu.addAction("Réglages…")
+    settings_action = menu.addAction(t("menu_settings"))
     settings_action.triggered.connect(widget._open_settings)
 
-    top_action = menu.addAction("Toujours au-dessus")
+    top_action = menu.addAction(t("always_on_top"))
     top_action.setCheckable(True)
     top_action.setChecked(bool(widget.settings.get("always_on_top")))
     top_action.triggered.connect(widget._toggle_on_top)
 
     menu.addSeparator()
-    quit_action = menu.addAction("Quitter")
+    quit_action = menu.addAction(t("menu_quit"))
     quit_action.triggered.connect(widget._quit)
 
     tray.setContextMenu(menu)

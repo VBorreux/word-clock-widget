@@ -17,6 +17,8 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QApplication, QColorDialog, QDialog, QMenu, QWidget
 
+from flags import flag_icon
+from i18n import tr
 from locales import (
     DEFAULT_LANGUAGE,
     Locale,
@@ -401,18 +403,21 @@ class ClockWidget(QWidget):
         event.accept()
 
     def _build_menu(self) -> QMenu:
+        def t(key: str) -> str:
+            return tr(self.locale.code, key)
+
         menu = QMenu(self)
 
-        settings_action = menu.addAction("Réglages…")
+        settings_action = menu.addAction(t("menu_settings"))
         settings_action.triggered.connect(self._open_settings)
 
         menu.addSeparator()
 
-        language_menu = menu.addMenu("Langue")
+        language_menu = menu.addMenu(t("menu_language"))
         language_group = QActionGroup(language_menu)
         language_group.setExclusive(True)
         for locale in get_available_locales(self.settings.data):
-            action = language_menu.addAction(locale.name)
+            action = language_menu.addAction(flag_icon(locale.code), locale.name)
             action.setCheckable(True)
             action.setChecked(locale.code == self.locale.code)
             language_group.addAction(action)
@@ -420,7 +425,7 @@ class ClockWidget(QWidget):
                 lambda checked=False, code=locale.code: self._set_language(code)
             )
 
-        opacity_menu = menu.addMenu("Opacité")
+        opacity_menu = menu.addMenu(t("menu_opacity"))
         for value in (0.3, 0.5, 0.7, 0.85, 1.0):
             action = opacity_menu.addAction(f"{int(value * 100)} %")
             action.setCheckable(True)
@@ -431,38 +436,38 @@ class ClockWidget(QWidget):
                 lambda checked=False, v=value: self._set_opacity(v)
             )
 
-        size_menu = menu.addMenu("Taille")
+        size_menu = menu.addMenu(t("menu_size"))
         for value in (0.7, 0.85, 1.0, 1.2, 1.5, 2.0):
             action = size_menu.addAction(f"×{value:g}")
             action.setCheckable(True)
             action.setChecked(abs(float(self.settings.get("scale")) - value) < 1e-6)
             action.triggered.connect(lambda checked=False, v=value: self._set_scale(v))
 
-        colors_menu = menu.addMenu("Couleurs")
-        colors_menu.addAction("Lettres actives…").triggered.connect(
+        colors_menu = menu.addMenu(t("menu_colors"))
+        colors_menu.addAction(t("colors_active")).triggered.connect(
             lambda: self._pick_color("active_color")
         )
-        colors_menu.addAction("Lettres inactives…").triggered.connect(
+        colors_menu.addAction(t("colors_inactive")).triggered.connect(
             lambda: self._pick_color("inactive_color")
         )
-        colors_menu.addAction("Fond…").triggered.connect(
+        colors_menu.addAction(t("colors_background")).triggered.connect(
             lambda: self._pick_color("background_color")
         )
 
         menu.addSeparator()
 
-        top_action = menu.addAction("Toujours au-dessus")
+        top_action = menu.addAction(t("always_on_top"))
         top_action.setCheckable(True)
         top_action.setChecked(bool(self.settings.get("always_on_top")))
         top_action.triggered.connect(self._toggle_on_top)
 
-        optional_action = menu.addAction("Langues optionnelles")
+        optional_action = menu.addAction(t("optional_locales"))
         optional_action.setCheckable(True)
         optional_action.setChecked(bool(self.settings.get("enable_optional_locales")))
         optional_action.triggered.connect(self._toggle_optional)
 
         menu.addSeparator()
-        quit_action = menu.addAction("Quitter")
+        quit_action = menu.addAction(t("menu_quit"))
         quit_action.triggered.connect(self._quit)
 
         return menu
@@ -511,7 +516,9 @@ class ClockWidget(QWidget):
 
     def _pick_color(self, key: str) -> None:
         current = self._color_setting(key, "#FFFFFF")
-        chosen = QColorDialog.getColor(current, self, "Choisir une couleur")
+        chosen = QColorDialog.getColor(
+            current, self, tr(self.locale.code, "choose_color")
+        )
         if chosen.isValid():
             self.settings.set(key, chosen.name())
             self.update()
