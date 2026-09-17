@@ -1,0 +1,372 @@
+"""Frameless, draggable Qlocktwo-style desktop clock widget."""
+
+from __future__ import annotations
+
+import datetime as _dt
+
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer
+from PyQt6.QtGui import (
+    QAction,
+    QActionGroup,
+    QColor,
+    QFont,
+    QFontDatabase,
+    QKeySequence,
+    QPainter,
+    QShortcut,
+)
+from PyQt6.QtWidgets import QApplication, QMenu, QWidget
+
+from locales import Locale, get_available_locales, get_locale, minute_dots
+from settings import Settings
+
+CELL_SIZE = 30.0
+BOARD_MARGIN = 22.0
+CORNER_RADIUS = 20.0
+
+_FONT_CANDIDATES: dict[str, list[str]] = {
+    "zh": [
+        "Noto Sans CJK SC",
+        "Noto Sans SC",
+        "Source Han Sans SC",
+        "WenQuanYi Micro Hei",
+        "AR PL UMing CN",
+    ],
+    "ar": ["Noto Naskh Arabic", "Noto Sans Arabic", "DejaVu Sans", "FreeSerif"],
+    "ru": ["DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono"],
+}
+_DEFAULT_FONTS = [
+    "DejaVu Sans Mono",
+    "Liberation Mono",
+    "Noto Sans Mono",
+    "Ubuntu Mono",
+    "FreeMono",
+    "monospace",
+]
+
+
+def _pick_font(locale: Locale) -> str:
+    try:
+        available = set(QFontDatabase.families())
+    except Exception:  # pragma: no cover - no QApplication / no font backend
+        available = set()
+    candidates = _FONT_CANDIDATES.get(locale.code, []) + _DEFAULT_FONTS
+    for name in candidates:
+        if name in available:
+            return name
+    return candidates[-1]
+
+
+class ClockWidget(QWidget):
+    def __init__(self, settings: Settings, locale: Locale) -> None:
+        super().__init__(None)
+        self.settings = settings
+        self.locale = locale
+        self._font_family = _pick_font(locale)
+        self._drag_offset: QPoint | None = None
+        self._system_move = False
+        self._active_cells: set[tuple[int, int]] = set()
+        self._active_segments: list[tuple[str, int, int, int]] = []
+        self._cell = CELL_SIZE
+
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_menu)
+
+        for sequence in ("Ctrl+Q", "Esc"):
+            QShortcut(QKeySequence(sequence), self, activated=self._quit)
+
+        self._apply_window_flags()
+        self._refresh_active()
+        self._resize_to_board()
+        self._restore_position()
+
+        self._last_minute = _dt.datetime.now().minute
+        self._timer = QTimer(self)
+        self._timer.setInterval(1000)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start()
+
+    # ------------------------------------------------------------------ window
+    def _apply_window_flags(self) -> None:
+        # A regular (frameless) window so that the compositor grants it focus:
+        # this is required for dragging, the context menu and keyboard quit.
+        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
+        if self.settings.get("always_on_top"):
+            flags |= Qt.WindowType.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
+
+    def _resize_to_board(self) -> None:
+        scale = float(self.settings.get("scale") or 1.0)
+        self._cell = CELL_SIZE * scale
+        width = int(self.locale.width * self._cell + 2 * BOARD_MARGIN)
+        height = int(self.locale.height * self._cell + 2 * BOARD_MARGIN)
+        self.setFixedSize(width, height)
+
+    def _restore_position(self) -> None:
+        position = self.settings.get("position")
+        if self._position_is_visible(position):
+            self.move(int(position[0]), int(position[1]))
+            return
+        self._center_on_screen()
+
+    def _position_is_visible(self, position) -> bool:
+        if not (
+            isinstance(position, (list, tuple))
+            and len(position) == 2
+            and all(isinstance(value, (int, float)) for value in position)
+        ):
+            return False
+        x, y = int(position[0]), int(position[1])
+        rect = QRect(x, y, self.width(), self.height())
+        return any(
+            screen.availableGeometry().intersects(rect)
+            for screen in QApplication.screens()
+        )
+
+    def _center_on_screen(self) -> None:
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        geometry = screen.availableGeometry()
+        self.move(
+            geometry.x() + (geometry.width() - self.width()) // 2,
+            geometry.y() + (geometry.height() - self.height()) // 2,
+        )
+
+    def _save_position(self) -> None:
+        point = self.pos()
+        if self._position_is_visible((point.x(), point.y())):
+            self.settings.set("position", [point.x(), point.y()])
+
+    # -------------------------------------------------------------------- time
+    def _refresh_active(self) -> None:
+        now = _dt.datetime.now()
+        cells: set[tuple[int, int]] = set()
+        segments: list[tuple[str, int, int, int]] = []
+        for token in self.locale.build(now.hour, now.minute):
+            for row, col, length in self.locale.segments(token):
+                segments.append((token, row, col, length))
+                for offset in range(length):
+                    cells.add((row, col + offset))
+        self._active_cells = cells
+        self._active_segments = segments
+
+    def _tick(self) -> None:
+        now = _dt.datetime.now()
+        self._last_minute = now.minute
+        self._refresh_active()
+        self.update()
+
+    def _quit(self) -> None:
+        application = QApplication.instance()
+        if application is not None:
+            application.quit()
+
+    # ------------------------------------------------------------------- paint
+    def paintEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+
+        opacity = float(self.settings.get("opacity") or 1.0)
+        background = QColor(16, 16, 20)
+        background.setAlphaF(max(0.05, min(1.0, opacity)))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(background)
+        painter.drawRoundedRect(
+            QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5),
+            CORNER_RADIUS,
+            CORNER_RADIUS,
+        )
+
+        cell = self._cell
+        font = QFont(self._font_family)
+        font.setPixelSize(max(8, int(cell * 0.6)))
+        font.setWeight(QFont.Weight.Medium)
+        painter.setFont(font)
+
+        inactive = QColor("#222222")
+        active = QColor("#FFFFFF")
+        glow = bool(self.settings.get("glow"))
+        covered: set[tuple[int, int]] = set()
+
+        if self.locale.rtl:
+            for token, row, col, length in self._active_segments:
+                rect = QRectF(
+                    BOARD_MARGIN + col * cell,
+                    BOARD_MARGIN + row * cell,
+                    length * cell,
+                    cell,
+                )
+                self._draw_text(painter, rect, token, active, glow)
+                for offset in range(length):
+                    covered.add((row, col + offset))
+
+        for row in range(self.locale.height):
+            for col in range(self.locale.width):
+                if (row, col) in covered:
+                    continue
+                rect = QRectF(
+                    BOARD_MARGIN + col * cell,
+                    BOARD_MARGIN + row * cell,
+                    cell,
+                    cell,
+                )
+                if (row, col) in self._active_cells:
+                    self._draw_text(
+                        painter, rect, self.locale.grid[row][col], active, glow
+                    )
+                else:
+                    painter.setPen(inactive)
+                    painter.drawText(
+                        rect,
+                        Qt.AlignmentFlag.AlignCenter,
+                        self.locale.grid[row][col],
+                    )
+
+        if self.settings.get("show_dots"):
+            self._draw_dots(painter, cell)
+
+        painter.end()
+
+    def _draw_text(
+        self, painter: QPainter, rect: QRectF, text: str, color: QColor, glow: bool
+    ) -> None:
+        if glow:
+            halo = QColor(color)
+            halo.setAlpha(70)
+            painter.setPen(halo)
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1)):
+                painter.drawText(
+                    rect.translated(dx, dy), Qt.AlignmentFlag.AlignCenter, text
+                )
+        painter.setPen(color)
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+
+    def _draw_dots(self, painter: QPainter, cell: float) -> None:
+        count = minute_dots(_dt.datetime.now().minute)
+        corners = ((0, 0), (1, 0), (1, 1), (0, 1))
+        radius = max(2.0, cell * 0.09)
+        painter.setPen(Qt.PenStyle.NoPen)
+        for index, (rx, ry) in enumerate(corners):
+            cx = BOARD_MARGIN / 2 + rx * (self.width() - BOARD_MARGIN)
+            cy = BOARD_MARGIN / 2 + ry * (self.height() - BOARD_MARGIN)
+            painter.setBrush(QColor(255, 255, 255) if index < count else QColor(60, 60, 60))
+            painter.drawEllipse(QPointF(cx, cy), radius, radius)
+
+    # ------------------------------------------------------------------ events
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            handle = self.windowHandle()
+            if handle is not None and handle.startSystemMove():
+                # Wayland (and some compositors) only allow the compositor to
+                # move a window; startSystemMove hands the drag over to it.
+                self._system_move = True
+                event.accept()
+                return
+            self._drag_offset = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if (
+            self._drag_offset is not None
+            and event.buttons() & Qt.MouseButton.LeftButton
+        ):
+            self.move(event.globalPosition().toPoint() - self._drag_offset)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if self._system_move or self._drag_offset is not None:
+            self._system_move = False
+            self._drag_offset = None
+            self._save_position()
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    # ------------------------------------------------------------- context menu
+    def _show_menu(self, position: QPoint) -> None:
+        menu = QMenu(self)
+
+        language_menu = menu.addMenu("Langue")
+        language_group = QActionGroup(language_menu)
+        language_group.setExclusive(True)
+        for locale in get_available_locales(self.settings.data):
+            action = language_menu.addAction(locale.name)
+            action.setCheckable(True)
+            action.setChecked(locale.code == self.locale.code)
+            language_group.addAction(action)
+            action.triggered.connect(
+                lambda checked=False, code=locale.code: self._set_language(code)
+            )
+
+        opacity_menu = menu.addMenu("Opacité")
+        for value in (0.3, 0.5, 0.7, 0.85, 1.0):
+            action = opacity_menu.addAction(f"{int(value * 100)} %")
+            action.setCheckable(True)
+            action.setChecked(
+                abs(float(self.settings.get("opacity")) - value) < 1e-6
+            )
+            action.triggered.connect(
+                lambda checked=False, v=value: self._set_opacity(v)
+            )
+
+        size_menu = menu.addMenu("Taille")
+        for value in (0.7, 0.85, 1.0, 1.2, 1.5, 2.0):
+            action = size_menu.addAction(f"×{value:g}")
+            action.setCheckable(True)
+            action.setChecked(abs(float(self.settings.get("scale")) - value) < 1e-6)
+            action.triggered.connect(lambda checked=False, v=value: self._set_scale(v))
+
+        menu.addSeparator()
+
+        top_action = menu.addAction("Toujours au-dessus")
+        top_action.setCheckable(True)
+        top_action.setChecked(bool(self.settings.get("always_on_top")))
+        top_action.triggered.connect(self._toggle_on_top)
+
+        optional_action = menu.addAction("Langues optionnelles")
+        optional_action.setCheckable(True)
+        optional_action.setChecked(bool(self.settings.get("enable_optional_locales")))
+        optional_action.triggered.connect(self._toggle_optional)
+
+        menu.addSeparator()
+        quit_action = menu.addAction("Quitter")
+        quit_action.triggered.connect(self._quit)
+
+        menu.exec(self.mapToGlobal(position))
+
+    # ------------------------------------------------------------ menu handlers
+    def _set_language(self, code: str) -> None:
+        self.locale = get_locale(code)
+        self._font_family = _pick_font(self.locale)
+        self.settings.set("language", code)
+        self._refresh_active()
+        self._resize_to_board()
+        self.update()
+
+    def _set_opacity(self, value: float) -> None:
+        self.settings.set("opacity", value)
+        self.update()
+
+    def _set_scale(self, value: float) -> None:
+        self.settings.set("scale", value)
+        self._resize_to_board()
+        self.update()
+
+    def _toggle_on_top(self, checked: bool) -> None:
+        self.settings.set("always_on_top", checked)
+        self._apply_window_flags()
+        self.show()
+
+    def _toggle_optional(self, checked: bool) -> None:
+        self.settings.set("enable_optional_locales", checked)
+        if not checked and self.locale.optional:
+            self._set_language("en")
