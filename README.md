@@ -117,7 +117,7 @@ To add a language: create `locales/xx.py` following an existing language, then
 register it in `locales/__init__.py`. Add the UI translation in `i18n.py` and a
 flag in `flags.py`.
 
-## systemd service and autostart
+## systemd service, autostart and applications list
 
 ```bash
 ./service.sh install     # systemd --user service (starts with the session)
@@ -125,9 +125,15 @@ flag in `flags.py`.
 ./service.sh start|stop|restart|status
 ./service.sh autostart   # alternative: XDG autostart entry
 ./service.sh no-autostart
+./service.sh desktop     # add the app to the applications list (app grid)
+./service.sh no-desktop  # remove it
 ```
 
 Service control: `systemctl --user status qlocktwo`.
+
+`./service.sh desktop` installs `~/.local/share/applications/qlocktwo.desktop`
+and the icon, so the widget appears in the Ubuntu applications list (the app
+grid) and can be launched from there. Only one instance runs at a time.
 
 ## Packaging
 
