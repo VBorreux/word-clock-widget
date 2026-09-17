@@ -11,21 +11,30 @@ from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
 
-def make_icon() -> QIcon:
-    size = 64
+def make_icon(size: int = 64) -> QIcon:
+    scale = size / 64.0
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     painter.setBrush(QColor("#101014"))
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawRoundedRect(2, 2, size - 4, size - 4, 14, 14)
+    painter.drawRoundedRect(
+        int(2 * scale),
+        int(2 * scale),
+        int(size - 4 * scale),
+        int(size - 4 * scale),
+        14 * scale,
+        14 * scale,
+    )
     pen = QPen(QColor("#FFFFFF"))
-    pen.setWidth(3)
+    pen.setWidthF(3 * scale)
     painter.setPen(pen)
-    painter.drawEllipse(16, 16, 32, 32)
-    painter.drawLine(32, 32, 32, 19)
-    painter.drawLine(32, 32, 43, 38)
+    painter.drawEllipse(
+        int(16 * scale), int(16 * scale), int(32 * scale), int(32 * scale)
+    )
+    painter.drawLine(int(32 * scale), int(32 * scale), int(32 * scale), int(19 * scale))
+    painter.drawLine(int(32 * scale), int(32 * scale), int(43 * scale), int(38 * scale))
     painter.end()
     return QIcon(pixmap)
 

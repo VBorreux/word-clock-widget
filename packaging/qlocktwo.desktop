@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Qlocktwo
+GenericName=Word clock
+Comment=Qlocktwo-style desktop clock widget
+Exec=qlocktwo
+Icon=qlocktwo
+Terminal=false
+Categories=Utility;Clock;
+Keywords=clock;time;word;qlocktwo;
