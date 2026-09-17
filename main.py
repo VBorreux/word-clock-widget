@@ -7,6 +7,7 @@ import sys
 from PyQt6.QtWidgets import QApplication
 
 from locales import DEFAULT_LANGUAGE, get_locale, validate_all
+from icon import app_icon
 from settings import Settings
 from tray import create_tray
 from widget import ClockWidget
@@ -18,6 +19,8 @@ def main() -> int:
     app = QApplication([arg for arg in sys.argv if arg != "--settings"])
     app.setApplicationName("Qlocktwo")
     app.setApplicationDisplayName("Qlocktwo")
+    app.setDesktopFileName("qlocktwo")
+    app.setWindowIcon(app_icon())
     app.setQuitOnLastWindowClosed(True)
 
     settings = Settings.load()

@@ -52,7 +52,8 @@ cmd_deb() {
     rm -rf "$pkgroot"
     mkdir -p "$pkgroot/DEBIAN" "$pkgroot/opt" \
         "$pkgroot/usr/bin" "$pkgroot/usr/share/applications" \
-        "$pkgroot/usr/share/icons/hicolor/256x256/apps"
+        "$pkgroot/usr/share/icons/hicolor/256x256/apps" \
+        "$pkgroot/usr/share/icons/hicolor/scalable/apps"
     cp -r "$DIST_DIR/qlocktwo" "$pkgroot/opt/qlocktwo"
     cat > "$pkgroot/usr/bin/qlocktwo" <<'EOF'
 #!/bin/sh
@@ -61,6 +62,8 @@ EOF
     chmod 0755 "$pkgroot/usr/bin/qlocktwo"
     cp "$PACKAGING_DIR/qlocktwo.desktop" "$pkgroot/usr/share/applications/"
     make_icon_png "$pkgroot/usr/share/icons/hicolor/256x256/apps/qlocktwo.png"
+    cp "$ROOT/assets/qlocktwo.svg" \
+        "$pkgroot/usr/share/icons/hicolor/scalable/apps/qlocktwo.svg"
     cat > "$pkgroot/DEBIAN/control" <<EOF
 Package: qlocktwo
 Version: $VERSION
@@ -83,13 +86,17 @@ cmd_appimage() {
     local appdir="$BUILD_DIR/AppDir"
     rm -rf "$appdir"
     mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" \
-        "$appdir/usr/share/icons/hicolor/256x256/apps"
+        "$appdir/usr/share/icons/hicolor/256x256/apps" \
+        "$appdir/usr/share/icons/hicolor/scalable/apps"
     cp -r "$DIST_DIR/qlocktwo/." "$appdir/usr/bin/"
     cp "$PACKAGING_DIR/qlocktwo.desktop" "$appdir/qlocktwo.desktop"
     cp "$PACKAGING_DIR/qlocktwo.desktop" "$appdir/usr/share/applications/"
     make_icon_png "$appdir/qlocktwo.png"
     cp "$appdir/qlocktwo.png" \
         "$appdir/usr/share/icons/hicolor/256x256/apps/qlocktwo.png"
+    cp "$ROOT/assets/qlocktwo.svg" "$appdir/qlocktwo.svg"
+    cp "$ROOT/assets/qlocktwo.svg" \
+        "$appdir/usr/share/icons/hicolor/scalable/apps/qlocktwo.svg"
     cat > "$appdir/AppRun" <<'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"

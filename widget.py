@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import QApplication, QColorDialog, QDialog, QMenu, QWidget
 
 from flags import flag_icon
 from i18n import tr
+from icon import app_icon
 from locales import (
     DEFAULT_LANGUAGE,
     Locale,
@@ -80,6 +81,7 @@ class ClockWidget(QWidget):
         self._cell = CELL_SIZE
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setWindowIcon(app_icon())
 
         for sequence in ("Ctrl+Q", "Esc"):
             QShortcut(QKeySequence(sequence), self, activated=self._quit)

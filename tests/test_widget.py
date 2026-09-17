@@ -135,6 +135,12 @@ class WidgetSmokeTests(unittest.TestCase):
             finally:
                 widget.close()
 
+    def test_application_icon_is_available(self) -> None:
+        from icon import ASSET_PATH, app_icon
+
+        self.assertTrue(ASSET_PATH.exists())
+        self.assertFalse(app_icon().isNull())
+
     def test_toggle_optional_switches_away_from_arabic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = Settings.load(Path(directory) / "config.json")
