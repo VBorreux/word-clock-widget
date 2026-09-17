@@ -5,6 +5,7 @@
 # Usage:
 #   ./run.sh            # launch the clock
 #   ./run.sh --settings # launch and open the settings dialog
+#   ./run.sh --no-install   # skip dependency installation (used by the service)
 #   ./run.sh test       # run the unit tests inside the venv
 #
 # The interpreter is auto-detected: the first one able to build a virtual
@@ -14,6 +15,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+SKIP_INSTALL=0
+ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --no-install) SKIP_INSTALL=1 ;;
+        *) ARGS+=("$arg") ;;
+    esac
+done
+set -- "${ARGS[@]}"
 
 find_python() {
     if [ -n "${PYTHON:-}" ]; then
@@ -81,9 +92,16 @@ if ! python -m pip --version >/dev/null 2>&1; then
     source "$VENV_DIR/bin/activate"
 fi
 
-echo "[run.sh] Installing/updating dependencies"
-python -m pip install --upgrade pip >/dev/null 2>&1 || true
-python -m pip install -r requirements.txt
+if [ "$SKIP_INSTALL" = "1" ]; then
+    if ! python -c 'import PyQt6' >/dev/null 2>&1; then
+        echo "[run.sh] Dependencies missing, installing them"
+        python -m pip install -r requirements.txt
+    fi
+else
+    echo "[run.sh] Installing/updating dependencies"
+    python -m pip install --upgrade pip >/dev/null 2>&1 || true
+    python -m pip install -r requirements.txt
+fi
 
 if [ "${1:-}" = "test" ]; then
     shift
